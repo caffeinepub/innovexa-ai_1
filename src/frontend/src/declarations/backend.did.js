@@ -12,6 +12,7 @@ export const Mode = IDL.Variant({
   'pro' : IDL.Null,
   'fast' : IDL.Null,
   'thinking' : IDL.Null,
+  'ultra' : IDL.Null,
 });
 export const http_header = IDL.Record({
   'value' : IDL.Text,
@@ -22,11 +23,11 @@ export const http_request_result = IDL.Record({
   'body' : IDL.Vec(IDL.Nat8),
   'headers' : IDL.Vec(http_header),
 });
-export const TransformationInput = IDL.Record({
+export const TransformInput = IDL.Record({
   'context' : IDL.Vec(IDL.Nat8),
   'response' : http_request_result,
 });
-export const TransformationOutput = IDL.Record({
+export const TransformOutput = IDL.Record({
   'status' : IDL.Nat,
   'body' : IDL.Vec(IDL.Nat8),
   'headers' : IDL.Vec(http_header),
@@ -38,12 +39,7 @@ export const idlService = IDL.Service({
       [IDL.Text],
       [],
     ),
-  'transform' : IDL.Func(
-      [TransformationInput],
-      [TransformationOutput],
-      ['query'],
-    ),
-  'unsafeTrap' : IDL.Func([IDL.Text], [], []),
+  'transform' : IDL.Func([TransformInput], [TransformOutput], ['query']),
 });
 
 export const idlInitArgs = [];
@@ -53,6 +49,7 @@ export const idlFactory = ({ IDL }) => {
     'pro' : IDL.Null,
     'fast' : IDL.Null,
     'thinking' : IDL.Null,
+    'ultra' : IDL.Null,
   });
   const http_header = IDL.Record({ 'value' : IDL.Text, 'name' : IDL.Text });
   const http_request_result = IDL.Record({
@@ -60,11 +57,11 @@ export const idlFactory = ({ IDL }) => {
     'body' : IDL.Vec(IDL.Nat8),
     'headers' : IDL.Vec(http_header),
   });
-  const TransformationInput = IDL.Record({
+  const TransformInput = IDL.Record({
     'context' : IDL.Vec(IDL.Nat8),
     'response' : http_request_result,
   });
-  const TransformationOutput = IDL.Record({
+  const TransformOutput = IDL.Record({
     'status' : IDL.Nat,
     'body' : IDL.Vec(IDL.Nat8),
     'headers' : IDL.Vec(http_header),
@@ -76,12 +73,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Text],
         [],
       ),
-    'transform' : IDL.Func(
-        [TransformationInput],
-        [TransformationOutput],
-        ['query'],
-      ),
-    'unsafeTrap' : IDL.Func([IDL.Text], [], []),
+    'transform' : IDL.Func([TransformInput], [TransformOutput], ['query']),
   });
 };
 

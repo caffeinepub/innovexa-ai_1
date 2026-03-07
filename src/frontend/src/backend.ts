@@ -89,11 +89,11 @@ export class ExternalBlob {
         return this;
     }
 }
-export interface TransformationInput {
+export interface TransformInput {
     context: Uint8Array;
     response: http_request_result;
 }
-export interface TransformationOutput {
+export interface TransformOutput {
     status: bigint;
     body: Uint8Array;
     headers: Array<http_header>;
@@ -110,12 +110,12 @@ export interface http_request_result {
 export enum Mode {
     pro = "pro",
     fast = "fast",
-    thinking = "thinking"
+    thinking = "thinking",
+    ultra = "ultra"
 }
 export interface backendInterface {
     sendMessage(history: Array<[string, string]>, userMessage: string, mode: Mode): Promise<string>;
-    transform(input: TransformationInput): Promise<TransformationOutput>;
-    unsafeTrap(message: string): Promise<void>;
+    transform(input: TransformInput): Promise<TransformOutput>;
 }
 import type { Mode as _Mode } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -134,7 +134,7 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async transform(arg0: TransformationInput): Promise<TransformationOutput> {
+    async transform(arg0: TransformInput): Promise<TransformOutput> {
         if (this.processError) {
             try {
                 const result = await this.actor.transform(arg0);
@@ -148,20 +148,6 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async unsafeTrap(arg0: string): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.unsafeTrap(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.unsafeTrap(arg0);
-            return result;
-        }
-    }
 }
 function to_candid_Mode_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Mode): _Mode {
     return to_candid_variant_n2(_uploadFile, _downloadFile, value);
@@ -172,6 +158,8 @@ function to_candid_variant_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8
     fast: null;
 } | {
     thinking: null;
+} | {
+    ultra: null;
 } {
     return value == Mode.pro ? {
         pro: null
@@ -179,6 +167,8 @@ function to_candid_variant_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         fast: null
     } : value == Mode.thinking ? {
         thinking: null
+    } : value == Mode.ultra ? {
+        ultra: null
     } : value;
 }
 export interface CreateActorOptions {

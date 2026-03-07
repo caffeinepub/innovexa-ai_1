@@ -71,6 +71,7 @@
     --fast-color: 0.78 0.20 190;
     --thinking-color: 0.72 0.18 270;
     --pro-color: 0.80 0.18 55;
+    --ultra-color: 0.72 0.22 10;
 
     --chart-1: 0.72 0.18 220;
     --chart-2: 0.78 0.20 190;
@@ -215,5 +216,23 @@
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes ultraPulse {
+    0%, 100% { box-shadow: 0 0 40px oklch(0.72 0.22 10 / 0.25), 0 0 80px oklch(0.72 0.22 10 / 0.08); }
+    50% { box-shadow: 0 0 60px oklch(0.72 0.22 10 / 0.45), 0 0 120px oklch(0.72 0.22 10 / 0.15); }
+  }
+
+  .ultra-pulse {
+    animation: ultraPulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes crownFloat {
+    0%, 100% { transform: translateY(0px) rotate(-2deg); }
+    50% { transform: translateY(-6px) rotate(2deg); }
+  }
+
+  .crown-float {
+    animation: crownFloat 3s ease-in-out infinite;
   }
 }

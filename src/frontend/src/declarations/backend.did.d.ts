@@ -12,12 +12,13 @@ import type { Principal } from '@icp-sdk/core/principal';
 
 export type Mode = { 'pro' : null } |
   { 'fast' : null } |
-  { 'thinking' : null };
-export interface TransformationInput {
+  { 'thinking' : null } |
+  { 'ultra' : null };
+export interface TransformInput {
   'context' : Uint8Array,
   'response' : http_request_result,
 }
-export interface TransformationOutput {
+export interface TransformOutput {
   'status' : bigint,
   'body' : Uint8Array,
   'headers' : Array<http_header>,
@@ -30,8 +31,7 @@ export interface http_request_result {
 }
 export interface _SERVICE {
   'sendMessage' : ActorMethod<[Array<[string, string]>, string, Mode], string>,
-  'transform' : ActorMethod<[TransformationInput], TransformationOutput>,
-  'unsafeTrap' : ActorMethod<[string], undefined>,
+  'transform' : ActorMethod<[TransformInput], TransformOutput>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

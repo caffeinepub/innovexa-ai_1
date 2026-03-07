@@ -7,11 +7,11 @@ export interface None {
     __kind__: "None";
 }
 export type Option<T> = Some<T> | None;
-export interface TransformationInput {
+export interface TransformInput {
     context: Uint8Array;
     response: http_request_result;
 }
-export interface TransformationOutput {
+export interface TransformOutput {
     status: bigint;
     body: Uint8Array;
     headers: Array<http_header>;
@@ -28,10 +28,10 @@ export interface http_request_result {
 export enum Mode {
     pro = "pro",
     fast = "fast",
-    thinking = "thinking"
+    thinking = "thinking",
+    ultra = "ultra"
 }
 export interface backendInterface {
     sendMessage(history: Array<[string, string]>, userMessage: string, mode: Mode): Promise<string>;
-    transform(input: TransformationInput): Promise<TransformationOutput>;
-    unsafeTrap(message: string): Promise<void>;
+    transform(input: TransformInput): Promise<TransformOutput>;
 }

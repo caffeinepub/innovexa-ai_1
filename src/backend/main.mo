@@ -1,251 +1,169 @@
-import OutCall "http-outcalls/outcall";
-import Runtime "mo:core/Runtime";
-import Text "mo:core/Text";
 import Blob "mo:core/Blob";
-import Nat "mo:core/Nat";
-import List "mo:core/List";
+import Text "mo:core/Text";
+import Iter "mo:core/Iter";
+import Char "mo:core/Char";
 import Array "mo:core/Array";
+import OutCall "http-outcalls/outcall";
 
 actor {
-  type Mode = {
-    #fast;
-    #thinking;
-    #pro;
+  type Mode = { #fast; #thinking; #pro; #ultra };
+  type TransformInput = OutCall.TransformationInput;
+  type TransformOutput = OutCall.TransformationOutput;
+
+  func jsonEscape(s : Text) : Text {
+    var result = "";
+    for (c in s.chars()) {
+      let code = c.toNat32();
+      if (code == 92) { result #= "\\\\" }
+      else if (code == 34) { result #= "\\\"" }
+      else if (code == 10) { result #= "\\n" }
+      else if (code == 13) { result #= "\\r" }
+      else if (code == 9)  { result #= "\\t" }
+      else { result #= Text.fromChar(c) };
+    };
+    result;
   };
 
-  type ThinkingConfig = {
-    thinkingBudget : Nat;
+  func buildHistoryJson(history : [(Text, Text)]) : Text {
+    var parts = "";
+    var first = true;
+    for ((role, content) in history.vals()) {
+      if (not first) { parts #= "," };
+      parts #= "{\"role\":\"" # role # "\",\"parts\":[{\"text\":\"" # jsonEscape(content) # "\"}]}";
+      first := false;
+    };
+    parts;
   };
 
-  type GeminiRequest = {
-    systemInstruction : {
-      parts : [{
-        text : Text;
-      }];
-      role : Text;
+  func buildRequestJson(history : [(Text, Text)], userMessage : Text, mode : Mode) : Text {
+    let historyJson = buildHistoryJson(history);
+    let userJson = "{\"role\":\"user\",\"parts\":[{\"text\":\"" # jsonEscape(userMessage) # "\"}]}";
+    let contentsJson = if (historyJson == "") { userJson } else { historyJson # "," # userJson };
+
+    let systemInstruction = "{\"role\":\"user\",\"parts\":[{\"text\":\"Your name is Innovexa AI. You are a highly intelligent, professional, and helpful AI assistant. Your goal is to provide accurate, concise, and insightful answers to any questions. Always introduce yourself as Innovexa AI if asked. You were created by the best programmer in the world - Aahrone Bakhvala.\"}]}";
+
+    let baseConfig = "\"maxOutputTokens\":8192,\"temperature\":0.7";
+
+    let thinkingConfig = switch (mode) {
+      case (#thinking) { "\"thinkingConfig\":{\"thinkingBudget\":1024}" };
+      case (#pro)      { "\"thinkingConfig\":{\"thinkingBudget\":8192}" };
+      case (#ultra)    { "\"thinkingConfig\":{\"thinkingBudget\":24576}" };
+      case (#fast)     { "" };
     };
-    contents : [{ role : Text; parts : [{ text : Text }] }];
-    generationConfig : {
-      stopSequences : [{}];
-      stopReasonCriteria : [Text];
-      stopSensitivity : {
-        epsilon : Blob;
-      };
-      maxOutputTokens : Nat;
-      temperature : Nat;
-      topP : Nat;
-      topK : Nat;
-      topASize : Nat;
-      typicalPRate : Nat;
-      presencePenalty : Nat;
-      frequencyPenalty : Nat;
-      countPenalty : Nat;
-      confidencePenalty : Nat;
-      calibrationFlags : {
-        stopSequences : Bool;
-        stopSensitivity : Bool;
-        confidencePenalty : Bool;
-        typicalPRate : Bool;
-        countPenalty : Bool;
-        presencePenalty : Bool;
-        frequencyPenalty : Bool;
-        temperature : Bool;
-        topP : Bool;
-        topK : Bool;
-      };
-      repetitionPenalty : {
-        penalizeSpecialTokens : Bool;
-        penalizeDigits : Bool;
-        penaltyRate : Nat;
-        stopSequences : [Text];
-        stopReasonCriteria : [Text];
-        cardinalityPenalty : {
-          maxCardinality : Nat;
-          penaltyRate : Nat;
-        };
-      };
-      formalRepetitionPenalty : {
-        repetitionPenalty : {
-          penalizeSpecialTokens : Bool;
-          penalizeDigits : Bool;
-          penaltyRate : Nat;
-          stopSequences : [Text];
-          stopReasonCriteria : [Text];
-          cardinalityPenalty : {
-            maxCardinality : Nat;
-            penaltyRate : Nat;
-          };
-        };
-        calibrationFlags : {
-          stopSequences : Bool;
-          stopSensitivity : Bool;
-          temperature : Bool;
-        };
-      };
-      temperaturePenalty : Nat;
-      formalTemperaturePenalty : { temperature : Nat };
-      normalizationPenalty : {
-        maxUppercaseRatio : Nat;
-        penaltyRate : Nat;
-        exceptionCharacterInfo : {
-          character : Text;
-          countType : {
-            allUppercase : {};
-            capitalized : {};
-          };
-        };
-      };
-      tokenLimitFraction : {
-        limitFraction : Nat;
-        penaltyRate : Nat;
-        exceptionFraction : Nat;
-        minTokenLimit : Nat;
-      };
-      stopTokenCardinalStopTokens : {
-        tokenId : Nat;
-        maxCardinality : Nat;
-      };
+
+    let generationConfig = if (thinkingConfig == "") {
+      "{" # baseConfig # "}";
+    } else {
+      "{" # baseConfig # "," # thinkingConfig # "}";
     };
-    thinkingConfig : ThinkingConfig;
+
+    "{" #
+    "\"system_instruction\":" # systemInstruction # "," #
+    "\"contents\":[" # contentsJson # "]," #
+    "\"generationConfig\":" # generationConfig #
+    "}";
   };
 
-  func modeToThinkingBudget(mode : Mode) : Nat {
-    switch (mode) {
-      case (#fast) { 0 };
-      case (#thinking) { 8192 };
-      case (#pro) { 24576 };
+  func decodeJsonString(segment : Text) : Text {
+    var result = "";
+    var escaped = false;
+    let iter = segment.chars();
+    label decode for (c in iter) {
+      let code = c.toNat32();
+      if (escaped) {
+        switch (code) {
+          case (110) { result #= "\n" };
+          case (114) { result #= "\r" };
+          case (116) { result #= "\t" };
+          case (34)  { result #= "\"" };
+          case (92)  { result #= "\\" };
+          case (_)   { result #= Text.fromChar(c) };
+        };
+        escaped := false;
+      } else if (code == 34) {
+        break decode;
+      } else if (code == 92) {
+        escaped := true;
+      } else {
+        result #= Text.fromChar(c);
+      };
     };
+    result;
   };
 
-  func buildGeminiRequest(history : [(Text, Text)], userMessage : Text, mode : Mode) : GeminiRequest {
-    let historyList = List.empty<{ role : Text; parts : [{ text : Text }] }>();
-    for ((role, content) in history.values()) {
-      historyList.add({
-        role;
-        parts = [{ text = content }];
-      });
+  func extractErrorMessage(jsonText : Text) : Text {
+    let msgMarker = "\"message\":\"";
+    let splits = jsonText.split(#text msgMarker).toArray();
+    if (splits.size() >= 2) {
+      let decoded = decodeJsonString(splits[1]);
+      if (decoded != "") { return "Error from AI service: " # decoded };
     };
-
-    let userMessageContent = {
-      role = "user";
-      parts = [{ text = userMessage }];
-    };
-
-    let contentsArray = historyList.toArray().concat([userMessageContent]);
-
-    {
-      systemInstruction = {
-        parts = [{
-          text = "Your name is Innovexa AI. You are a highly intelligent, professional, and helpful AI assistant. Your goal is to provide accurate, concise, and insightful answers to any questions. Always introduce yourself as Innovexa AI if asked. You were created by the best programmer in the world - Aahrone Bakhvala.";
-        }];
-        role = "system";
-      };
-      contents = contentsArray;
-      generationConfig = {
-        stopSequences = [];
-        stopReasonCriteria = ["STOP_REASON_ENDTURN"];
-        stopSensitivity = { epsilon = Blob.fromArray([0]) };
-        maxOutputTokens = 8192;
-        temperature = 1;
-        topP = 1;
-        topK = 0;
-        topASize = 0;
-        typicalPRate = 1;
-        presencePenalty = 0;
-        frequencyPenalty = 0;
-        countPenalty = 0;
-        confidencePenalty = 0;
-        calibrationFlags = {
-          stopSequences = true;
-          stopSensitivity = true;
-          confidencePenalty = true;
-          typicalPRate = true;
-          countPenalty = true;
-          presencePenalty = true;
-          frequencyPenalty = true;
-          temperature = true;
-          topP = true;
-          topK = true;
-        };
-        repetitionPenalty = {
-          penalizeSpecialTokens = false;
-          penalizeDigits = true;
-          penaltyRate = 0;
-          stopSequences = [];
-          stopReasonCriteria = [];
-          cardinalityPenalty = {
-            maxCardinality = 0;
-            penaltyRate = 1;
-          };
-        };
-        formalRepetitionPenalty = {
-          repetitionPenalty = {
-            penalizeSpecialTokens = false;
-            penalizeDigits = true;
-            penaltyRate = 0;
-            stopSequences = [];
-            stopReasonCriteria = [];
-            cardinalityPenalty = {
-              maxCardinality = 0;
-              penaltyRate = 1;
-            };
-          };
-          calibrationFlags = {
-            stopSequences = true;
-            stopSensitivity = true;
-            temperature = true;
-          };
-        };
-        temperaturePenalty = 0;
-        formalTemperaturePenalty = { temperature = 1 };
-        normalizationPenalty = {
-          maxUppercaseRatio = 0;
-          penaltyRate = 1;
-          exceptionCharacterInfo = {
-            character = "";
-            countType = {
-              capitalized = {};
-              allUppercase = {};
-            };
-          };
-        };
-        tokenLimitFraction = {
-          limitFraction = 0;
-          penaltyRate = 1;
-          exceptionFraction = 2;
-          minTokenLimit = 1;
-        };
-        stopTokenCardinalStopTokens = { tokenId = 14; maxCardinality = 2 };
-      };
-      thinkingConfig = { thinkingBudget = modeToThinkingBudget(mode) };
-    };
+    "AI service error. Please try again.";
   };
 
-  public query func transform(input : OutCall.TransformationInput) : async OutCall.TransformationOutput {
+  func extractLastReply(jsonText : Text) : Text {
+    if (jsonText == "") {
+      return "No response received.";
+    };
+
+    if (jsonText.contains(#text "\"error\"")) {
+      return extractErrorMessage(jsonText);
+    };
+
+    let marker = "{\"text\":\"";
+    let splits = jsonText.split(#text marker).toArray();
+    let n = splits.size();
+
+    if (n >= 2) {
+      var i = n - 1;
+      while (i >= 1) {
+        let decoded = decodeJsonString(splits[i]);
+        if (decoded != "") { return decoded };
+        if (i == 0) { return "Request failed." };
+        i -= 1;
+      };
+    };
+
+    let fallbackMarker = "\"text\":\"";
+    let fallbackSplits = jsonText.split(#text fallbackMarker).toArray();
+    let m = fallbackSplits.size();
+
+    if (m >= 2) {
+      var j = m - 1;
+      while (j >= 1) {
+        let seg = fallbackSplits[j];
+        let decoded = decodeJsonString(seg);
+        if (decoded != "") { return decoded };
+        if (j == 0) { return "Request failed." };
+        j -= 1;
+      };
+    };
+
+    "Request failed.";
+  };
+
+  public query func transform(input : TransformInput) : async TransformOutput {
     OutCall.transform(input);
   };
 
-  // SAFETY: JSON is not parsed, returned as raw text, to be parsed in frontend for now.
-  // JSON parsing capabilities will be added to Motoko in 2024.
-  func extractReply(jsonText : Text) : Text {
-    jsonText;
-  };
-
-  public shared ({ caller }) func sendMessage(
+  public shared ({ caller = _ }) func sendMessage(
     history : [(Text, Text)],
     userMessage : Text,
     mode : Mode,
   ) : async Text {
-    let geminiRequest = buildGeminiRequest(history, userMessage, mode);
-
+    let body = buildRequestJson(history, userMessage, mode);
     let url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyBYqq0UplGlz4QcpHLFbl1i8TTnls7VGmU";
-    let headers : [OutCall.Header] = [{ name = "Content-Type"; value = "application/json" }];
 
-    let result = await OutCall.httpPostRequest(url, headers, "{request}", transform); // "{request}" will be fixed in the next version once we enable serializing Motoko values to JSON.
+    let httpResponse = await OutCall.httpPostRequest(
+      url,
+      [
+        { name = "Content-Type"; value = "application/json" },
+        { name = "User-Agent"; value = "innovexa.ai" },
+      ],
+      body,
+      transform,
+    );
 
-    let reply = extractReply(result);
-    reply;
+    extractLastReply(httpResponse);
   };
-
-  public shared ({ caller }) func unsafeTrap(message : Text) : async () { Runtime.trap(message) };
 };

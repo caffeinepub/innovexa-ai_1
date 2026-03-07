@@ -77,6 +77,7 @@ export default {
           fast: "oklch(var(--fast-color) / <alpha-value>)",
           thinking: "oklch(var(--thinking-color) / <alpha-value>)",
           pro: "oklch(var(--pro-color) / <alpha-value>)",
+          ultra: "oklch(var(--ultra-color) / <alpha-value>)",
         },
       },
       borderRadius: {
