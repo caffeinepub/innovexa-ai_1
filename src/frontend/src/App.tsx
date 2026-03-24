@@ -238,7 +238,10 @@ function SignInPage({
   );
 
   return (
-    <div className="relative min-h-screen flex flex-col overflow-hidden">
+    <div
+      className="relative min-h-screen flex flex-col overflow-hidden"
+      style={{ background: "oklch(0.10 0.006 260)" }}
+    >
       {/* Background */}
       <div className="absolute inset-0 dot-grid opacity-30 pointer-events-none" />
       <div
@@ -604,7 +607,10 @@ function LandingPage({
   signedInUser: string | null;
 }) {
   return (
-    <div className="relative min-h-screen flex flex-col overflow-hidden">
+    <div
+      className="relative min-h-screen flex flex-col overflow-hidden"
+      style={{ background: "oklch(0.10 0.006 260)" }}
+    >
       {/* Atmospheric background */}
       <div className="absolute inset-0 dot-grid opacity-40 pointer-events-none" />
       <div
@@ -1006,7 +1012,10 @@ function ModeSelectStep({
   ] as AppMode[];
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center px-4 overflow-hidden">
+    <div
+      className="relative min-h-screen flex flex-col items-center justify-center px-4 overflow-hidden"
+      style={{ background: "oklch(0.10 0.006 260)" }}
+    >
       {/* Atmospheric background */}
       <div className="absolute inset-0 dot-grid opacity-50 pointer-events-none" />
       <div
@@ -2116,7 +2125,10 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div
+      className="min-h-screen"
+      style={{ background: "oklch(0.10 0.006 260)" }}
+    >
       <AnimatePresence mode="wait">
         {screen === "landing" && (
           <motion.div
