@@ -61,7 +61,7 @@ const VALID_PASSWORD = "6767";
 function validateCredentials(username: string, password: string): boolean {
   return (
     VALID_USERNAMES.includes(username.trim().toLowerCase()) &&
-    password.trim() === VALID_PASSWORD
+    password === VALID_PASSWORD
   );
 }
 
@@ -370,7 +370,6 @@ function SignInPage({
                   className="bg-transparent border-border/60 focus-visible:border-[oklch(0.72_0.22_10/0.6)] focus-visible:ring-[oklch(0.72_0.22_10/0.2)] text-foreground placeholder:text-muted-foreground/50 rounded-xl h-11"
                   style={{
                     background: "oklch(0.11 0.007 260)",
-                    color: "oklch(0.95 0.01 260)",
                   }}
                 />
               </div>
@@ -1133,8 +1132,8 @@ function ModeSelectStep({
             />
           </div>
 
-          <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight mb-2">
-            <span style={{ color: "oklch(0.72 0.18 220)" }}>Choose Your</span>{" "}
+          <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">
+            Choose Your{" "}
             <span
               className="text-glow"
               style={{ color: "oklch(0.72 0.18 220)" }}
