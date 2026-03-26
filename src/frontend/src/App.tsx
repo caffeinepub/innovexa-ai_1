@@ -32,6 +32,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Mode } from "./backend";
+import { useActor } from "./hooks/useActor";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1988,6 +1989,7 @@ export default function App() {
   });
   // Track where to go after sign-in
   const [afterSignIn, setAfterSignIn] = useState<"mode-select">("mode-select");
+  const { actor } = useActor();
 
   const handleSignIn = useCallback((username: string) => {
     sessionStorage.setItem("innovexa_user", username);
@@ -2040,81 +2042,9 @@ export default function App() {
     setScreen("landing");
   }, []);
 
-  const callGeminiDirect = useCallback(
-    async (
-      history: ChatMessage[],
-      userText: string,
-      currentMode: AppMode,
-    ): Promise<string> => {
-      const GEMINI_API_KEY = "AIzaSyC4Sc6KgfkIicO0TZRGnCapzvWmRkDbJCw";
-      const MODEL = "gemini-2.5-flash";
-      const URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-
-      const thinkingBudgets: Record<AppMode, number | null> = {
-        [Mode.fast]: null,
-        [Mode.thinking]: 1024,
-        [Mode.pro]: 8192,
-        [Mode.ultra]: 24576,
-      };
-
-      const budget = thinkingBudgets[currentMode];
-
-      const contents = [
-        ...history.map((m) => ({
-          role: m.role === "user" ? "user" : "model",
-          parts: [{ text: m.content }],
-        })),
-        { role: "user", parts: [{ text: userText }] },
-      ];
-
-      const body: Record<string, unknown> = {
-        system_instruction: {
-          parts: [
-            {
-              text: "Your name is Innovexa AI. You are a highly intelligent, professional, and helpful AI assistant. Your goal is to provide accurate, concise, and insightful answers to any questions. Always introduce yourself as Innovexa AI if asked. You were created by the best programmer in the world - Aahrone Bakhvala.",
-            },
-          ],
-        },
-        contents,
-        generationConfig: {
-          maxOutputTokens: 8192,
-          temperature: 0.7,
-          ...(budget !== null
-            ? { thinkingConfig: { thinkingBudget: budget } }
-            : {}),
-        },
-      };
-
-      const res = await fetch(URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        const msg =
-          (errData as { error?: { message?: string } })?.error?.message ??
-          `HTTP ${res.status}`;
-        throw new Error(msg);
-      }
-
-      const data = await res.json();
-      const reply: string =
-        data?.candidates?.[0]?.content?.parts?.find(
-          (p: { text?: string }) =>
-            typeof p.text === "string" && p.text.trim() !== "",
-        )?.text ?? "";
-
-      if (!reply) throw new Error("Empty response from AI service.");
-      return reply;
-    },
-    [],
-  );
-
   const handleSendMessage = useCallback(
     async (text: string) => {
-      if (isLoading) return;
+      if (isLoading || !actor) return;
 
       const userMsg: ChatMessage = {
         id: `msg-${Date.now()}-u`,
@@ -2128,7 +2058,13 @@ export default function App() {
       setError(null);
 
       try {
-        const reply = await callGeminiDirect(prevMessages, text, mode);
+        // Convert chat history to the format the backend expects: Array<[role, content]>
+        const history: Array<[string, string]> = prevMessages.map((m) => [
+          m.role === "user" ? "user" : "model",
+          m.content,
+        ]);
+
+        const reply = await actor.sendMessage(history, text, mode);
 
         setMessages((prev) => [
           ...prev,
@@ -2148,7 +2084,7 @@ export default function App() {
         setIsLoading(false);
       }
     },
-    [isLoading, messages, mode, callGeminiDirect],
+    [isLoading, messages, mode, actor],
   );
 
   return (

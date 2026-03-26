@@ -152,7 +152,7 @@ actor {
     mode : Mode,
   ) : async Text {
     let body = buildRequestJson(history, userMessage, mode);
-    let url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyBYqq0UplGlz4QcpHLFbl1i8TTnls7VGmU";
+    let url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyDjNE4GVJ5elafBI0o4XP_DAkOGOKrDoEE";
 
     let httpResponse = await OutCall.httpPostRequest(
       url,
