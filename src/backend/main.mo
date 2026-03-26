@@ -40,22 +40,18 @@ actor {
     let userJson = "{\"role\":\"user\",\"parts\":[{\"text\":\"" # jsonEscape(userMessage) # "\"}]}";
     let contentsJson = if (historyJson == "") { userJson } else { historyJson # "," # userJson };
 
-    let systemInstruction = "{\"role\":\"user\",\"parts\":[{\"text\":\"Your name is Innovexa AI. You are a highly intelligent, professional, and helpful AI assistant. Your goal is to provide accurate, concise, and insightful answers to any questions. Always introduce yourself as Innovexa AI if asked. You were created by the best programmer in the world - Aahrone Bakhvala.\"}]}";
+    let systemInstruction = "{\"parts\":[{\"text\":\"Your name is Innovexa AI. You are a highly intelligent, professional, and helpful AI assistant. Your goal is to provide accurate, concise, and insightful answers to any questions. Always introduce yourself as Innovexa AI if asked. You were created by the best programmer in the world - Aahrone Bakhvala.\"}]}";
 
     let baseConfig = "\"maxOutputTokens\":8192,\"temperature\":0.7";
 
     let thinkingConfig = switch (mode) {
-      case (#thinking) { "\"thinkingConfig\":{\"thinkingBudget\":1024}" };
-      case (#pro)      { "\"thinkingConfig\":{\"thinkingBudget\":8192}" };
-      case (#ultra)    { "\"thinkingConfig\":{\"thinkingBudget\":24576}" };
+      case (#thinking) { ",\"thinkingConfig\":{\"thinkingBudget\":1024}" };
+      case (#pro)      { ",\"thinkingConfig\":{\"thinkingBudget\":8192}" };
+      case (#ultra)    { ",\"thinkingConfig\":{\"thinkingBudget\":24576}" };
       case (#fast)     { "" };
     };
 
-    let generationConfig = if (thinkingConfig == "") {
-      "{" # baseConfig # "}";
-    } else {
-      "{" # baseConfig # "," # thinkingConfig # "}";
-    };
+    let generationConfig = "{" # baseConfig # thinkingConfig # "}";
 
     "{" #
     "\"system_instruction\":" # systemInstruction # "," #
@@ -101,6 +97,9 @@ actor {
     "AI service error. Please try again.";
   };
 
+  // Try to extract the last non-empty text value from Gemini JSON response.
+  // Gemini returns pretty-printed JSON so we must handle both
+  // compact `"text":"` and spaced `"text": "` formats.
   func extractLastReply(jsonText : Text) : Text {
     if (jsonText == "") {
       return "No response received.";
@@ -110,32 +109,23 @@ actor {
       return extractErrorMessage(jsonText);
     };
 
-    let marker = "{\"text\":\"";
-    let splits = jsonText.split(#text marker).toArray();
-    let n = splits.size();
+    // Try multiple marker variants to handle both compact and pretty-printed JSON
+    let markers : [Text] = [
+      "\"text\": \"",   // pretty-printed: "text": "..."
+      "{\"text\":\"",   // compact object start
+      "\"text\":\"",    // compact key only
+    ];
 
-    if (n >= 2) {
-      var i = n - 1;
-      while (i >= 1) {
-        let decoded = decodeJsonString(splits[i]);
-        if (decoded != "") { return decoded };
-        if (i == 0) { return "Request failed." };
-        i -= 1;
-      };
-    };
-
-    let fallbackMarker = "\"text\":\"";
-    let fallbackSplits = jsonText.split(#text fallbackMarker).toArray();
-    let m = fallbackSplits.size();
-
-    if (m >= 2) {
-      var j = m - 1;
-      while (j >= 1) {
-        let seg = fallbackSplits[j];
-        let decoded = decodeJsonString(seg);
-        if (decoded != "") { return decoded };
-        if (j == 0) { return "Request failed." };
-        j -= 1;
+    for (marker in markers.vals()) {
+      let splits = jsonText.split(#text marker).toArray();
+      let n = splits.size();
+      if (n >= 2) {
+        var i = n - 1;
+        while (i >= 1) {
+          let decoded = decodeJsonString(splits[i]);
+          if (decoded != "") { return decoded };
+          i -= 1;
+        };
       };
     };
 
