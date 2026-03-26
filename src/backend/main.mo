@@ -1,7 +1,5 @@
 import Blob "mo:core/Blob";
 import Text "mo:core/Text";
-import Iter "mo:core/Iter";
-import Char "mo:core/Char";
 import Array "mo:core/Array";
 import OutCall "http-outcalls/outcall";
 
@@ -42,16 +40,12 @@ actor {
 
     let systemInstruction = "{\"parts\":[{\"text\":\"Your name is Innovexa AI. You are a highly intelligent, professional, and helpful AI assistant. Your goal is to provide accurate, concise, and insightful answers to any questions. Always introduce yourself as Innovexa AI if asked. You were created by the best programmer in the world - Aahrone Bakhvala.\"}]}";
 
-    let baseConfig = "\"maxOutputTokens\":8192,\"temperature\":0.7";
-
-    let thinkingConfig = switch (mode) {
-      case (#thinking) { ",\"thinkingConfig\":{\"thinkingBudget\":1024}" };
-      case (#pro)      { ",\"thinkingConfig\":{\"thinkingBudget\":8192}" };
-      case (#ultra)    { ",\"thinkingConfig\":{\"thinkingBudget\":24576}" };
-      case (#fast)     { "" };
+    let generationConfig = switch (mode) {
+      case (#fast)     { "{\"maxOutputTokens\":2048,\"temperature\":0.5}" };
+      case (#thinking) { "{\"maxOutputTokens\":4096,\"temperature\":0.7}" };
+      case (#pro)      { "{\"maxOutputTokens\":6144,\"temperature\":0.7}" };
+      case (#ultra)    { "{\"maxOutputTokens\":8192,\"temperature\":0.9}" };
     };
-
-    let generationConfig = "{" # baseConfig # thinkingConfig # "}";
 
     "{" #
     "\"system_instruction\":" # systemInstruction # "," #
@@ -92,14 +86,17 @@ actor {
     let splits = jsonText.split(#text msgMarker).toArray();
     if (splits.size() >= 2) {
       let decoded = decodeJsonString(splits[1]);
-      if (decoded != "") { return "Error from AI service: " # decoded };
+      if (decoded != "") { return "Error: " # decoded };
+    };
+    let msgMarker2 = "\"message\": \"";
+    let splits2 = jsonText.split(#text msgMarker2).toArray();
+    if (splits2.size() >= 2) {
+      let decoded = decodeJsonString(splits2[1]);
+      if (decoded != "") { return "Error: " # decoded };
     };
     "AI service error. Please try again.";
   };
 
-  // Try to extract the last non-empty text value from Gemini JSON response.
-  // Gemini returns pretty-printed JSON so we must handle both
-  // compact `"text":"` and spaced `"text": "` formats.
   func extractLastReply(jsonText : Text) : Text {
     if (jsonText == "") {
       return "No response received.";
@@ -109,11 +106,10 @@ actor {
       return extractErrorMessage(jsonText);
     };
 
-    // Try multiple marker variants to handle both compact and pretty-printed JSON
+    // Try multiple marker variants for both compact and pretty-printed JSON
     let markers : [Text] = [
-      "\"text\": \"",   // pretty-printed: "text": "..."
-      "{\"text\":\"",   // compact object start
-      "\"text\":\"",    // compact key only
+      "\"text\": \"",
+      "\"text\":\"",
     ];
 
     for (marker in markers.vals()) {
@@ -123,7 +119,7 @@ actor {
         var i = n - 1;
         while (i >= 1) {
           let decoded = decodeJsonString(splits[i]);
-          if (decoded != "") { return decoded };
+          if (decoded.size() > 3) { return decoded };
           i -= 1;
         };
       };
@@ -142,13 +138,12 @@ actor {
     mode : Mode,
   ) : async Text {
     let body = buildRequestJson(history, userMessage, mode);
-    let url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyDjNE4GVJ5elafBI0o4XP_DAkOGOKrDoEE";
+    let url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyDjNE4GVJ5elafBI0o4XP_DAkOGOKrDoEE";
 
     let httpResponse = await OutCall.httpPostRequest(
       url,
       [
         { name = "Content-Type"; value = "application/json" },
-        { name = "User-Agent"; value = "innovexa.ai" },
       ],
       body,
       transform,
