@@ -81,20 +81,39 @@ actor {
     result;
   };
 
+  // Extract value after any variant of a key like "message"
+  func extractField(jsonText : Text, key : Text) : ?Text {
+    let variants = [
+      "\"" # key # "\":\"",
+      "\"" # key # "\": \"",
+      "\"" # key # "\": \n  \"",
+    ];
+    for (marker in variants.vals()) {
+      let splits = jsonText.split(#text marker).toArray();
+      if (splits.size() >= 2) {
+        let decoded = decodeJsonString(splits[1]);
+        if (decoded.size() > 0) { return ?decoded };
+      };
+    };
+    null;
+  };
+
   func extractErrorMessage(jsonText : Text) : Text {
-    let msgMarker = "\"message\":\"";
-    let splits = jsonText.split(#text msgMarker).toArray();
-    if (splits.size() >= 2) {
-      let decoded = decodeJsonString(splits[1]);
-      if (decoded != "") { return "Error: " # decoded };
+    switch (extractField(jsonText, "message")) {
+      case (?msg) { "Error: " # msg };
+      case null {
+        // Return a prefix of the raw response for debugging
+        let preview = if (jsonText.size() > 300) {
+          var s = "";
+          var count = 0;
+          for (c in jsonText.chars()) {
+            if (count < 300) { s #= Text.fromChar(c); count += 1 };
+          };
+          s # "..."
+        } else { jsonText };
+        "AI error: " # preview;
+      };
     };
-    let msgMarker2 = "\"message\": \"";
-    let splits2 = jsonText.split(#text msgMarker2).toArray();
-    if (splits2.size() >= 2) {
-      let decoded = decodeJsonString(splits2[1]);
-      if (decoded != "") { return "Error: " # decoded };
-    };
-    "AI service error. Please try again.";
   };
 
   func extractLastReply(jsonText : Text) : Text {
@@ -152,4 +171,3 @@ actor {
     extractLastReply(httpResponse);
   };
 };
-
