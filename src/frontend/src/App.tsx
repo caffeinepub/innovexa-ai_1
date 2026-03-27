@@ -1634,7 +1634,7 @@ function ChatScreen({
               className="w-4.5 h-4.5 object-contain"
             />
           </div>
-          <span className="font-display font-semibold text-sm text-foreground">
+          <span className="font-display font-semibold text-sm text-white">
             Innovexa{" "}
             <span
               style={{
