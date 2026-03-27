@@ -19,20 +19,24 @@ import {
   Eye,
   EyeOff,
   Gem,
+  History,
   Layers,
   Lock,
+  LogIn,
   LogOut,
   Plus,
   Send,
   Server,
   Shield,
   Sparkles,
+  User,
   Zap,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Mode } from "./backend";
 import { useActor } from "./hooks/useActor";
+import { useInternetIdentity } from "./hooks/useInternetIdentity";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -44,6 +48,14 @@ type ChatMessage = {
 
 type AppMode = Mode;
 type Screen = "landing" | "signin" | "welcome" | "mode-select" | "chat";
+
+type SavedConversation = {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  mode: AppMode;
+  timestamp: number;
+};
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -624,10 +636,16 @@ function LandingPage({
   onTryInnovexa,
   onUltraClick,
   signedInUser,
+  onIILogin,
+  onIILogout,
+  iiLoggedIn,
 }: {
   onTryInnovexa: () => void;
   onUltraClick: () => void;
   signedInUser: string | null;
+  onIILogin: () => void;
+  onIILogout: () => void;
+  iiLoggedIn: boolean;
 }) {
   return (
     <div
@@ -705,6 +723,46 @@ function LandingPage({
             <Crown className="w-3.5 h-3.5" />
             {signedInUser ? `${signedInUser} · Ultra` : "Innovexa Ultra →"}
           </Button>
+
+          <div className="flex flex-col items-center gap-0.5">
+            {iiLoggedIn ? (
+              <button
+                data-ocid="landing.ii_logout_button"
+                type="button"
+                onClick={onIILogout}
+                className="flex items-center gap-1.5 rounded-lg text-xs font-semibold px-3 py-1.5 transition-all duration-200"
+                style={{
+                  background: "oklch(0.72 0.18 270 / 0.12)",
+                  border: "1px solid oklch(0.72 0.18 270 / 0.3)",
+                  color: "oklch(0.72 0.18 270)",
+                }}
+              >
+                <User className="w-3.5 h-3.5" />
+                Signed In
+              </button>
+            ) : (
+              <button
+                data-ocid="landing.ii_login_button"
+                type="button"
+                onClick={onIILogin}
+                className="flex items-center gap-1.5 rounded-lg text-xs font-semibold px-3 py-1.5 transition-all duration-200"
+                style={{
+                  background: "oklch(0.72 0.18 270 / 0.12)",
+                  border: "1px solid oklch(0.72 0.18 270 / 0.3)",
+                  color: "oklch(0.72 0.18 270)",
+                }}
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                Sign In
+              </button>
+            )}
+            <span
+              className="text-[10px]"
+              style={{ color: "oklch(0.45 0.01 260)" }}
+            >
+              Powered by Innovexa Secure Login
+            </span>
+          </div>
 
           <Button
             data-ocid="landing.try_button"
@@ -1020,6 +1078,9 @@ function ModeSelectStep({
   onUltraLocked,
   signedInUser,
   onSignOut,
+  onIILogin,
+  onIILogout,
+  iiLoggedIn,
 }: {
   selectedMode: AppMode;
   onSelectMode: (mode: AppMode) => void;
@@ -1028,6 +1089,9 @@ function ModeSelectStep({
   onUltraLocked: () => void;
   signedInUser: string | null;
   onSignOut: () => void;
+  onIILogin: () => void;
+  onIILogout: () => void;
+  iiLoggedIn: boolean;
 }) {
   const allModes = [
     Mode.fast,
@@ -1076,34 +1140,75 @@ function ModeSelectStep({
             <span>Back</span>
           </motion.button>
 
-          {signedInUser && (
-            <motion.div
-              className="flex items-center gap-2"
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
-            >
-              <div
-                className="flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium"
-                style={{
-                  background: "oklch(0.72 0.22 10 / 0.1)",
-                  border: "1px solid oklch(0.72 0.22 10 / 0.25)",
-                  color: "oklch(0.72 0.22 10)",
-                }}
+          <motion.div
+            className="flex items-center gap-2"
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            {signedInUser && (
+              <>
+                <div
+                  className="flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium"
+                  style={{
+                    background: "oklch(0.72 0.22 10 / 0.1)",
+                    border: "1px solid oklch(0.72 0.22 10 / 0.25)",
+                    color: "oklch(0.72 0.22 10)",
+                  }}
+                >
+                  <Crown className="w-3 h-3" />
+                  <span>Hi, {signedInUser}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg px-2 py-1.5"
+                  title="Sign out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
+            <div className="flex flex-col items-end gap-0.5">
+              {iiLoggedIn ? (
+                <button
+                  data-ocid="mode.ii_logout_button"
+                  type="button"
+                  onClick={onIILogout}
+                  className="flex items-center gap-1.5 rounded-lg text-xs font-semibold px-3 py-1.5 transition-all duration-200"
+                  style={{
+                    background: "oklch(0.72 0.18 270 / 0.12)",
+                    border: "1px solid oklch(0.72 0.18 270 / 0.3)",
+                    color: "oklch(0.72 0.18 270)",
+                  }}
+                >
+                  <User className="w-3.5 h-3.5" />
+                  Signed In
+                </button>
+              ) : (
+                <button
+                  data-ocid="mode.ii_login_button"
+                  type="button"
+                  onClick={onIILogin}
+                  className="flex items-center gap-1.5 rounded-lg text-xs font-semibold px-3 py-1.5 transition-all duration-200"
+                  style={{
+                    background: "oklch(0.72 0.18 270 / 0.12)",
+                    border: "1px solid oklch(0.72 0.18 270 / 0.3)",
+                    color: "oklch(0.72 0.18 270)",
+                  }}
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  Sign In
+                </button>
+              )}
+              <span
+                className="text-[10px]"
+                style={{ color: "oklch(0.45 0.01 260)" }}
               >
-                <Crown className="w-3 h-3" />
-                <span>Hi, {signedInUser}</span>
-              </div>
-              <button
-                type="button"
-                onClick={onSignOut}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg px-2 py-1.5"
-                title="Sign out"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            </motion.div>
-          )}
+                Powered by Innovexa Secure Login
+              </span>
+            </div>
+          </motion.div>
         </div>
 
         {/* Header */}
@@ -1548,6 +1653,11 @@ function ChatScreen({
   error,
   onDismissError,
   signedInUser,
+  savedConversations,
+  onLoadConversation,
+  iiLoggedIn,
+  showHistory,
+  onToggleHistory,
 }: {
   mode: AppMode;
   messages: ChatMessage[];
@@ -1558,6 +1668,11 @@ function ChatScreen({
   error: string | null;
   onDismissError: () => void;
   signedInUser: string | null;
+  savedConversations: SavedConversation[];
+  onLoadConversation: (conv: SavedConversation) => void;
+  iiLoggedIn: boolean;
+  showHistory: boolean;
+  onToggleHistory: () => void;
 }) {
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1777,6 +1892,21 @@ function ChatScreen({
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {/* History button (II logged in only) */}
+        {iiLoggedIn && (
+          <Button
+            data-ocid="chat.history_button"
+            onClick={onToggleHistory}
+            variant="ghost"
+            size="sm"
+            className="flex items-center gap-1.5 text-xs font-medium hover:bg-accent/50 rounded-lg"
+            style={{ color: "oklch(0.65 0.01 260)" }}
+          >
+            <History className="w-3.5 h-3.5" strokeWidth={2} />
+            <span className="hidden sm:inline">History</span>
+          </Button>
+        )}
+
         {/* New Chat */}
         <Button
           data-ocid="chat.new_button"
@@ -1790,6 +1920,78 @@ function ChatScreen({
           <span className="hidden sm:inline">New Chat</span>
         </Button>
       </header>
+
+      {/* Conversation History Sidebar */}
+      <AnimatePresence>
+        {showHistory && (
+          <motion.div
+            data-ocid="chat.history_panel"
+            className="fixed inset-y-0 left-0 w-72 z-50 flex flex-col"
+            style={{
+              background: "oklch(0.12 0.008 260)",
+              borderRight: "1px solid oklch(0.22 0.015 260)",
+            }}
+            initial={{ x: -288, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -288, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div
+              className="flex items-center justify-between px-4 py-3"
+              style={{ borderBottom: "1px solid oklch(0.22 0.015 260)" }}
+            >
+              <span className="font-semibold text-sm text-foreground">
+                Conversation History
+              </span>
+              <button
+                type="button"
+                data-ocid="chat.history_close_button"
+                onClick={onToggleHistory}
+                className="text-muted-foreground hover:text-foreground transition-colors text-sm"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {savedConversations.map((conv, idx) => (
+                <button
+                  key={conv.id}
+                  type="button"
+                  data-ocid={`chat.history.item.${idx + 1}`}
+                  onClick={() => onLoadConversation(conv)}
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors"
+                  style={{ color: "oklch(0.80 0.008 240)" }}
+                >
+                  <div className="font-medium truncate">{conv.title}</div>
+                  <div className="text-xs opacity-50 mt-0.5">
+                    {new Date(conv.timestamp).toLocaleDateString()}
+                  </div>
+                </button>
+              ))}
+              {savedConversations.length === 0 && (
+                <p
+                  data-ocid="chat.history.empty_state"
+                  className="text-xs text-center mt-8"
+                  style={{ color: "oklch(0.50 0.01 260)" }}
+                >
+                  No saved conversations yet
+                </p>
+              )}
+            </div>
+            <div
+              className="p-3"
+              style={{ borderTop: "1px solid oklch(0.22 0.015 260)" }}
+            >
+              <p
+                className="text-xs text-center"
+                style={{ color: "oklch(0.45 0.01 260)" }}
+              >
+                Powered by Innovexa Secure Login
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Messages area */}
       <main className="flex-1 overflow-y-auto relative">
@@ -1974,6 +2176,20 @@ function ChatScreen({
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 
+// ─── Conversation helpers ──────────────────────────────────────────────────────
+function loadConversations(pid: string): SavedConversation[] {
+  try {
+    const raw = localStorage.getItem(`innovexa_convs_${pid}`);
+    return raw ? (JSON.parse(raw) as SavedConversation[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveConversationsToStorage(pid: string, convs: SavedConversation[]) {
+  localStorage.setItem(`innovexa_convs_${pid}`, JSON.stringify(convs));
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>(() => {
     // Restore screen from sessionStorage if signed in
@@ -1990,6 +2206,51 @@ export default function App() {
   // Track where to go after sign-in
   const [afterSignIn, setAfterSignIn] = useState<"mode-select">("mode-select");
   const { actor } = useActor();
+
+  // Internet Identity
+  const { identity, login: iiLogin, clear: iiClear } = useInternetIdentity();
+  const principalId = identity?.getPrincipal().toText();
+  const iiLoggedIn = !!principalId;
+
+  // Conversation persistence
+  const [savedConversations, setSavedConversations] = useState<
+    SavedConversation[]
+  >([]);
+  const [currentConvId, setCurrentConvId] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Load conversations when II identity changes
+  useEffect(() => {
+    if (principalId) {
+      setSavedConversations(loadConversations(principalId));
+    }
+  }, [principalId]);
+
+  // Auto-save conversation after messages change (if logged in via II)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional
+  useEffect(() => {
+    if (!principalId || messages.length === 0) return;
+    const firstMsg = messages[0];
+    const title =
+      firstMsg.content.slice(0, 40) +
+      (firstMsg.content.length > 40 ? "..." : "");
+    const convId = currentConvId ?? `conv-${Date.now()}`;
+    if (!currentConvId) setCurrentConvId(convId);
+    const existing = loadConversations(principalId);
+    const idx = existing.findIndex((c) => c.id === convId);
+    const updated: SavedConversation = {
+      id: convId,
+      title,
+      messages,
+      mode,
+      timestamp: Date.now(),
+    };
+    if (idx >= 0) existing[idx] = updated;
+    else existing.unshift(updated);
+    const trimmed = existing.slice(0, 20);
+    saveConversationsToStorage(principalId, trimmed);
+    setSavedConversations(trimmed);
+  }, [messages, principalId]);
 
   const handleSignIn = useCallback((username: string) => {
     sessionStorage.setItem("innovexa_user", username);
@@ -2039,7 +2300,17 @@ export default function App() {
   const handleNewChat = useCallback(() => {
     setMessages([]);
     setError(null);
+    setCurrentConvId(null);
+    setShowHistory(false);
     setScreen("landing");
+  }, []);
+
+  const handleLoadConversation = useCallback((conv: SavedConversation) => {
+    setMessages(conv.messages);
+    setMode(conv.mode);
+    setCurrentConvId(conv.id);
+    setShowHistory(false);
+    setScreen("chat");
   }, []);
 
   const handleSendMessage = useCallback(
@@ -2105,6 +2376,9 @@ export default function App() {
               onTryInnovexa={handleTryInnovexa}
               onUltraClick={handleUltraClick}
               signedInUser={signedInUser}
+              onIILogin={iiLogin}
+              onIILogout={iiClear}
+              iiLoggedIn={iiLoggedIn}
             />
           </motion.div>
         )}
@@ -2155,6 +2429,9 @@ export default function App() {
               onUltraLocked={handleUltraLocked}
               signedInUser={signedInUser}
               onSignOut={handleSignOut}
+              onIILogin={iiLogin}
+              onIILogout={iiClear}
+              iiLoggedIn={iiLoggedIn}
             />
           </motion.div>
         )}
@@ -2178,6 +2455,11 @@ export default function App() {
               error={error}
               onDismissError={() => setError(null)}
               signedInUser={signedInUser}
+              savedConversations={savedConversations}
+              onLoadConversation={handleLoadConversation}
+              iiLoggedIn={iiLoggedIn}
+              showHistory={showHistory}
+              onToggleHistory={() => setShowHistory((v) => !v)}
             />
           </motion.div>
         )}
