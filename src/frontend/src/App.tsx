@@ -294,7 +294,10 @@ function SignInPage({
               className="w-5 h-5 object-contain"
             />
           </div>
-          <span className="font-display font-bold text-base text-foreground tracking-tight">
+          <span
+            className="font-display font-bold text-base text-foreground tracking-tight"
+            style={{ color: "white" }}
+          >
             Innovexa <span style={{ color: "oklch(0.72 0.18 220)" }}>AI</span>
           </span>
         </div>
@@ -696,7 +699,10 @@ function LandingPage({
               className="w-5 h-5 object-contain"
             />
           </div>
-          <span className="font-display font-bold text-base text-foreground tracking-tight">
+          <span
+            className="font-display font-bold text-base text-foreground tracking-tight"
+            style={{ color: "white" }}
+          >
             Innovexa{" "}
             <span
               className="text-glow"
@@ -1758,7 +1764,7 @@ function ChatScreen({
                   : "oklch(0.72 0.18 220)",
               }}
             >
-              {isUltraMode ? "Ultra" : "AI"}
+              {isUltraMode ? "Ultra" : "Innovexa AI"}
             </span>
           </span>
           {/* Signed-in user badge */}
