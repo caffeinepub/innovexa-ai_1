@@ -81,7 +81,6 @@ actor {
     result;
   };
 
-  // Extract value after any variant of a key like "message"
   func extractField(jsonText : Text, key : Text) : ?Text {
     let variants = [
       "\"" # key # "\":\"",
@@ -98,34 +97,15 @@ actor {
     null;
   };
 
-  func extractErrorMessage(jsonText : Text) : Text {
-    switch (extractField(jsonText, "message")) {
-      case (?msg) { "Error: " # msg };
-      case null {
-        // Return a prefix of the raw response for debugging
-        let preview = if (jsonText.size() > 300) {
-          var s = "";
-          var count = 0;
-          for (c in jsonText.chars()) {
-            if (count < 300) { s #= Text.fromChar(c); count += 1 };
-          };
-          s # "..."
-        } else { jsonText };
-        "AI error: " # preview;
-      };
-    };
-  };
-
   func extractLastReply(jsonText : Text) : Text {
     if (jsonText == "") {
-      return "No response received.";
+      return "AI service error. Please try again.";
     };
 
     if (jsonText.contains(#text "\"error\"")) {
-      return extractErrorMessage(jsonText);
+      return "AI service error. Please try again.";
     };
 
-    // Try multiple marker variants for both compact and pretty-printed JSON
     let markers : [Text] = [
       "\"text\": \"",
       "\"text\":\"",
@@ -144,7 +124,7 @@ actor {
       };
     };
 
-    "Request failed.";
+    "AI service error. Please try again.";
   };
 
   public query func transform(input : TransformInput) : async TransformOutput {
@@ -157,7 +137,7 @@ actor {
     mode : Mode,
   ) : async Text {
     let body = buildRequestJson(history, userMessage, mode);
-    let url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyAx08UaWH4mR2nwiEDZeNgYUOZTNQEdgD8";
+    let url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyCFCZH0wXknOSNlhUp2i7Xlekmo6V5jQJU";
 
     let httpResponse = await OutCall.httpPostRequest(
       url,
