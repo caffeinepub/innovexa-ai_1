@@ -24,6 +24,7 @@ import {
   Lock,
   LogIn,
   LogOut,
+  Paperclip,
   Plus,
   Send,
   Server,
@@ -68,12 +69,14 @@ const VALID_USERNAMES = [
   "bruno",
   "ori",
   "jay",
+  "innovexa89@gmail.com",
 ];
 const VALID_PASSWORD = "6767";
 
 function validateCredentials(username: string, password: string): boolean {
+  const u = username.trim().toLowerCase();
   return (
-    VALID_USERNAMES.includes(username.trim().toLowerCase()) &&
+    (VALID_USERNAMES.includes(u) || u === "innovexa89@gmail.com") &&
     password.trim() === VALID_PASSWORD
   );
 }
@@ -240,9 +243,12 @@ function SignInPage({
       setIsSubmitting(true);
       setTimeout(() => {
         if (validateCredentials(username, password)) {
+          const u = username.trim().toLowerCase();
           const displayName =
-            username.trim().charAt(0).toUpperCase() +
-            username.trim().slice(1).toLowerCase();
+            u === "innovexa89@gmail.com"
+              ? "Innovexa Team"
+              : username.trim().charAt(0).toUpperCase() +
+                username.trim().slice(1).toLowerCase();
           onSignIn(displayName);
         } else {
           setError("Invalid username or password.");
@@ -594,13 +600,25 @@ function WelcomeScreen({
             </span>
           </h1>
           <p className="text-lg text-muted-foreground mb-10">
-            You now have access to{" "}
-            <span
-              className="font-semibold"
-              style={{ color: "oklch(0.72 0.22 10)" }}
-            >
-              Innovexa Ultra
-            </span>
+            {username === "Innovexa Team" ? (
+              <span
+                className="font-semibold"
+                style={{ color: "oklch(0.72 0.22 10)" }}
+              >
+                Identified as Innovexa Team User. Innovexa Ultra permission
+                Granted.
+              </span>
+            ) : (
+              <>
+                You now have access to{" "}
+                <span
+                  className="font-semibold"
+                  style={{ color: "oklch(0.72 0.22 10)" }}
+                >
+                  Innovexa Ultra
+                </span>
+              </>
+            )}
           </p>
         </motion.div>
 
@@ -1059,15 +1077,7 @@ function LandingPage({
       {/* Footer */}
       <footer className="relative z-10 text-center py-6 px-4">
         <p className="text-xs text-muted-foreground/40">
-          © {new Date().getFullYear()}.{" "}
-          <a
-            href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== "undefined" ? window.location.hostname : "")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-muted-foreground transition-colors"
-          >
-            Built with love using caffeine.ai
-          </a>
+          © {new Date().getFullYear()} by Innovexa Inc. All Rights Reserved.
         </p>
       </footer>
     </div>
@@ -1683,6 +1693,8 @@ function ChatScreen({
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const cfg = MODE_CONFIG[mode];
   const isUltraMode = mode === Mode.ultra;
 
@@ -1701,12 +1713,29 @@ function ChatScreen({
     ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
   }, [inputValue]);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const text = inputValue.trim();
     if (!text || isLoading) return;
     setInputValue("");
-    onSendMessage(text);
-  }, [inputValue, isLoading, onSendMessage]);
+    let fullMessage = text;
+    if (attachedFiles.length > 0) {
+      fullMessage += "\n\n--- Attached Files ---";
+      for (const file of attachedFiles) {
+        if (file.type.startsWith("image/")) {
+          fullMessage += `\n[Image attached: ${file.name} - image content cannot be displayed in text mode]`;
+        } else {
+          try {
+            const content = await file.text();
+            fullMessage += `\n[${file.name}]\n${content}`;
+          } catch {
+            fullMessage += `\n[${file.name} - could not read file]`;
+          }
+        }
+      }
+      setAttachedFiles([]);
+    }
+    onSendMessage(fullMessage);
+  }, [inputValue, isLoading, onSendMessage, attachedFiles]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1717,6 +1746,16 @@ function ChatScreen({
     },
     [handleSend],
   );
+
+  const handleReport = useCallback(() => {
+    const lastMsg = messages[messages.length - 1];
+    const body = lastMsg
+      ? `Reported message:\n\n${lastMsg.role === "model" ? "Innovexa AI: " : "User: "}${lastMsg.content}\n\nPlease review this response.`
+      : "A user has reported an issue with Innovexa AI.";
+    const subject = "Innovexa AI - User Report";
+    const mailto = `mailto:Innovexa89@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailto, "_blank");
+  }, [messages]);
 
   const isEmpty = messages.length === 0;
   const allModes = [
@@ -2120,6 +2159,53 @@ function ChatScreen({
         style={{ borderTop: "1px solid oklch(0.18 0.012 260)" }}
       >
         <div className="max-w-3xl mx-auto px-4 py-3">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".txt,.pdf,.png,.jpg,.jpeg,.gif,.webp,.md,.csv,.json,.js,.ts,.py,.html,.css"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) {
+                setAttachedFiles((prev) => [
+                  ...prev,
+                  ...Array.from(e.target.files!),
+                ]);
+                e.target.value = "";
+              }
+            }}
+          />
+          {/* File chips */}
+          {attachedFiles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {attachedFiles.map((file, i) => (
+                <span
+                  key={`${file.name}-${i}`}
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs"
+                  style={{
+                    background: "oklch(0.18 0.012 260)",
+                    border: "1px solid oklch(0.25 0.015 260)",
+                    color: "oklch(0.75 0.01 260)",
+                  }}
+                >
+                  {file.name}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAttachedFiles((prev) =>
+                        prev.filter((_, idx) => idx !== i),
+                      )
+                    }
+                    className="ml-0.5 hover:opacity-70 transition-opacity"
+                    aria-label={`Remove ${file.name}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           <div
             className="relative flex items-end gap-3 rounded-2xl px-4 py-3 transition-all duration-200"
             style={{
@@ -2130,6 +2216,26 @@ function ChatScreen({
               boxShadow: "0 2px 16px oklch(0 0 0 / 0.3)",
             }}
           >
+            {/* Paperclip button */}
+            <Button
+              data-ocid="chat.upload_button"
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading}
+              className="flex-shrink-0 w-8 h-8 p-0 rounded-lg bg-transparent border-none shadow-none hover:bg-transparent disabled:opacity-30"
+              style={{ color: "oklch(0.55 0.01 260)" }}
+              aria-label="Attach files"
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.color =
+                  "oklch(0.75 0.01 260)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.color =
+                  "oklch(0.55 0.01 260)";
+              }}
+            >
+              <Paperclip className="w-4 h-4" />
+            </Button>
             <Textarea
               ref={textareaRef}
               data-ocid="chat.input"
@@ -2172,7 +2278,16 @@ function ChatScreen({
           </div>
 
           <p className="text-center text-xs text-muted-foreground/40 mt-2">
-            Innovexa AI can make mistakes. Verify important information.
+            Innovexa AI is an AI chatbot. Innovexa AI may make mistakes. If it
+            doesn&apos;t satisfy you,{" "}
+            <button
+              onClick={handleReport}
+              type="button"
+              className="underline hover:text-muted-foreground/70 transition-colors cursor-pointer"
+            >
+              REPORT
+            </button>
+            .
           </p>
         </div>
       </footer>
