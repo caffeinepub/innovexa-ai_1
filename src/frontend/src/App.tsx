@@ -375,7 +375,7 @@ function SignInPage({
                 <label
                   htmlFor="signin-username"
                   className="text-xs font-semibold tracking-wide uppercase"
-                  style={{ color: "oklch(0.58 0.016 240)" }}
+                  style={{ color: "oklch(0.72 0.016 240)" }}
                 >
                   Username
                 </label>
@@ -401,7 +401,7 @@ function SignInPage({
                 <label
                   htmlFor="signin-password"
                   className="text-xs font-semibold tracking-wide uppercase"
-                  style={{ color: "oklch(0.58 0.016 240)" }}
+                  style={{ color: "oklch(0.72 0.016 240)" }}
                 >
                   Password
                 </label>
@@ -782,7 +782,7 @@ function LandingPage({
             )}
             <span
               className="text-[10px]"
-              style={{ color: "oklch(0.45 0.01 260)" }}
+              style={{ color: "oklch(0.68 0.01 260)" }}
             >
               Powered by Innovexa Secure Login
             </span>
@@ -894,7 +894,7 @@ function LandingPage({
             className="relative px-8 py-6 text-base font-bold rounded-xl transition-all duration-300 overflow-hidden group"
             style={{
               background: "oklch(0.72 0.18 220)",
-              color: "oklch(0.08 0.006 260)",
+              color: "oklch(0.15 0.006 260)",
               boxShadow:
                 "0 0 32px oklch(0.72 0.18 220 / 0.4), 0 4px 16px oklch(0 0 0 / 0.4)",
             }}
@@ -936,7 +936,7 @@ function LandingPage({
                 <div className="flex items-center gap-2 px-2 sm:px-0">
                   <Icon
                     className="w-3.5 h-3.5"
-                    style={{ color: "oklch(0.55 0.01 260)" }}
+                    style={{ color: "oklch(0.72 0.01 260)" }}
                     strokeWidth={2}
                   />
                   <span
@@ -965,7 +965,7 @@ function LandingPage({
           <div className="text-center mb-8">
             <p
               className="text-xs font-semibold tracking-widest uppercase"
-              style={{ color: "oklch(0.55 0.01 260)" }}
+              style={{ color: "oklch(0.72 0.01 260)" }}
             >
               Capabilities
             </p>
@@ -1058,7 +1058,7 @@ function LandingPage({
           >
             <Shield
               className="w-5 h-5 flex-shrink-0"
-              style={{ color: "oklch(0.55 0.01 260)" }}
+              style={{ color: "oklch(0.72 0.01 260)" }}
               strokeWidth={1.5}
             />
             <p
@@ -1219,7 +1219,7 @@ function ModeSelectStep({
               )}
               <span
                 className="text-[10px]"
-                style={{ color: "oklch(0.45 0.01 260)" }}
+                style={{ color: "oklch(0.68 0.01 260)" }}
               >
                 Powered by Innovexa Secure Login
               </span>
@@ -1324,7 +1324,7 @@ function ModeSelectStep({
                   >
                     <Lock
                       className="w-5 h-5"
-                      style={{ color: "oklch(0.50 0.01 260)" }}
+                      style={{ color: "oklch(0.68 0.01 260)" }}
                       strokeWidth={1.5}
                     />
                     <span
@@ -1427,7 +1427,7 @@ function ModeSelectStep({
                   }
                 : {
                     background: "oklch(0.72 0.18 220)",
-                    color: "oklch(0.08 0.006 260)",
+                    color: "oklch(0.15 0.006 260)",
                     boxShadow:
                       "0 0 28px oklch(0.72 0.18 220 / 0.4), 0 4px 16px oklch(0 0 0 / 0.4)",
                   }
@@ -1867,7 +1867,7 @@ function ChatScreen({
             >
               <p
                 className="text-xs font-semibold tracking-wider uppercase"
-                style={{ color: "oklch(0.5 0.01 260)" }}
+                style={{ color: "oklch(0.68 0.01 260)" }}
               >
                 Select Model
               </p>
@@ -1889,7 +1889,7 @@ function ChatScreen({
                       ? `oklch(${mc.colorRaw} / 0.12)`
                       : "transparent",
                     color: isUltraOptionLocked
-                      ? "oklch(0.50 0.01 260)"
+                      ? "oklch(0.68 0.01 260)"
                       : isActive
                         ? `oklch(${mc.colorRaw})`
                         : "oklch(0.88 0.008 240)",
@@ -2017,7 +2017,7 @@ function ChatScreen({
                 <p
                   data-ocid="chat.history.empty_state"
                   className="text-xs text-center mt-8"
-                  style={{ color: "oklch(0.50 0.01 260)" }}
+                  style={{ color: "oklch(0.68 0.01 260)" }}
                 >
                   No saved conversations yet
                 </p>
@@ -2029,7 +2029,7 @@ function ChatScreen({
             >
               <p
                 className="text-xs text-center"
-                style={{ color: "oklch(0.45 0.01 260)" }}
+                style={{ color: "oklch(0.68 0.01 260)" }}
               >
                 Powered by Innovexa Secure Login
               </p>
@@ -2223,7 +2223,7 @@ function ChatScreen({
               onClick={() => fileInputRef.current?.click()}
               disabled={isLoading}
               className="flex-shrink-0 w-8 h-8 p-0 rounded-lg bg-transparent border-none shadow-none hover:bg-transparent disabled:opacity-30"
-              style={{ color: "oklch(0.55 0.01 260)" }}
+              style={{ color: "oklch(0.72 0.01 260)" }}
               aria-label="Attach files"
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLElement).style.color =
@@ -2231,7 +2231,7 @@ function ChatScreen({
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLElement).style.color =
-                  "oklch(0.55 0.01 260)";
+                  "oklch(0.72 0.01 260)";
               }}
             >
               <Paperclip className="w-4 h-4" />
@@ -2269,7 +2269,7 @@ function ChatScreen({
                 border: "none",
                 color: isUltraMode
                   ? "oklch(0.97 0.005 30)"
-                  : "oklch(0.08 0.006 260)",
+                  : "oklch(0.15 0.006 260)",
               }}
               aria-label="Send message"
             >
