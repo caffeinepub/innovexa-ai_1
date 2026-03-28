@@ -11,6 +11,13 @@ export interface TransformInput {
     context: Uint8Array;
     response: http_request_result;
 }
+export interface Conversation {
+    id: string;
+    title: string;
+    messages: string;
+    mode: string;
+    timestamp: bigint;
+}
 export interface TransformOutput {
     status: bigint;
     body: Uint8Array;
@@ -32,6 +39,11 @@ export enum Mode {
     ultra = "ultra"
 }
 export interface backendInterface {
+    createAccount(username: string, password: string): Promise<boolean>;
+    deleteConversation(username: string, password: string, conversationId: string): Promise<boolean>;
+    getConversations(username: string, password: string): Promise<Array<Conversation>>;
+    loginAccount(username: string, password: string): Promise<Array<Conversation>>;
+    saveConversation(username: string, password: string, conversation: Conversation): Promise<boolean>;
     sendMessage(history: Array<[string, string]>, userMessage: string, mode: Mode): Promise<string>;
     transform(input: TransformInput): Promise<TransformOutput>;
 }

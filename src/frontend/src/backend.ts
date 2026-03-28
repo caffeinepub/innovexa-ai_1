@@ -93,6 +93,13 @@ export interface TransformInput {
     context: Uint8Array;
     response: http_request_result;
 }
+export interface Conversation {
+    id: string;
+    title: string;
+    messages: string;
+    mode: string;
+    timestamp: bigint;
+}
 export interface TransformOutput {
     status: bigint;
     body: Uint8Array;
@@ -114,12 +121,87 @@ export enum Mode {
     ultra = "ultra"
 }
 export interface backendInterface {
+    createAccount(username: string, password: string): Promise<boolean>;
+    deleteConversation(username: string, password: string, conversationId: string): Promise<boolean>;
+    getConversations(username: string, password: string): Promise<Array<Conversation>>;
+    loginAccount(username: string, password: string): Promise<Array<Conversation>>;
+    saveConversation(username: string, password: string, conversation: Conversation): Promise<boolean>;
     sendMessage(history: Array<[string, string]>, userMessage: string, mode: Mode): Promise<string>;
     transform(input: TransformInput): Promise<TransformOutput>;
 }
 import type { Mode as _Mode } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+    async createAccount(arg0: string, arg1: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createAccount(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createAccount(arg0, arg1);
+            return result;
+        }
+    }
+    async deleteConversation(arg0: string, arg1: string, arg2: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteConversation(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteConversation(arg0, arg1, arg2);
+            return result;
+        }
+    }
+    async getConversations(arg0: string, arg1: string): Promise<Array<Conversation>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getConversations(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getConversations(arg0, arg1);
+            return result;
+        }
+    }
+    async loginAccount(arg0: string, arg1: string): Promise<Array<Conversation>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.loginAccount(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.loginAccount(arg0, arg1);
+            return result;
+        }
+    }
+    async saveConversation(arg0: string, arg1: string, arg2: Conversation): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.saveConversation(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.saveConversation(arg0, arg1, arg2);
+            return result;
+        }
+    }
     async sendMessage(arg0: Array<[string, string]>, arg1: string, arg2: Mode): Promise<string> {
         if (this.processError) {
             try {

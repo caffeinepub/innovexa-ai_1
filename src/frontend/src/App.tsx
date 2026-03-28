@@ -36,6 +36,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Mode } from "./backend";
+import type { Conversation as BackendConversation } from "./backend";
 import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 
@@ -216,6 +217,560 @@ const STATS = [
   { icon: Layers, value: "4", label: "AI Tiers" },
   { icon: Server, value: "Enterprise", label: "Ready" },
 ];
+
+// ─── Account Modal ────────────────────────────────────────────────────────────
+
+type AccountView = "choose" | "create" | "login";
+
+function AccountModal({
+  isOpen,
+  onClose,
+  onAccountLogin,
+  actor,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onAccountLogin: (
+    username: string,
+    password: string,
+    conversations: BackendConversation[],
+  ) => void;
+  actor: {
+    createAccount: (u: string, p: string) => Promise<boolean>;
+    loginAccount: (u: string, p: string) => Promise<BackendConversation[]>;
+  } | null;
+}) {
+  const [view, setView] = useState<AccountView>("choose");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const resetForm = () => {
+    setUsername("");
+    setPassword("");
+    setConfirmPassword("");
+    setShowPassword(false);
+    setShowConfirm(false);
+    setError("");
+    setIsSubmitting(false);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    setView("choose");
+    onClose();
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!username.trim()) {
+      setError("Please enter a username.");
+      return;
+    }
+    if (password.length < 4) {
+      setError("Password must be at least 4 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (!actor) {
+      setError("Service unavailable. Please try again.");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const success = await actor.createAccount(username.trim(), password);
+      if (success) {
+        onAccountLogin(username.trim(), password, []);
+        handleClose();
+      } else {
+        setError("Username already taken. Please choose a different one.");
+      }
+    } catch {
+      setError("Failed to create account. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!username.trim() || !password) {
+      setError("Please enter your username and password.");
+      return;
+    }
+    if (!actor) {
+      setError("Service unavailable. Please try again.");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const convs = await actor.loginAccount(username.trim(), password);
+      onAccountLogin(username.trim(), password, convs);
+      handleClose();
+    } catch {
+      setError("Invalid username or password.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const cardStyle = {
+    background: "oklch(0.13 0.008 260)",
+    border: "1px solid oklch(0.25 0.015 260)",
+    boxShadow:
+      "0 0 80px oklch(0.72 0.18 220 / 0.08), 0 32px 64px oklch(0 0 0 / 0.5)",
+  };
+
+  const inputStyle = {
+    background: "oklch(0.11 0.007 260)",
+    color: "oklch(0.95 0.01 260)",
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "oklch(0 0 0 / 0.7)" }}
+      onClick={handleClose}
+      onKeyDown={(e) => e.key === "Escape" && handleClose()}
+      role="presentation"
+    >
+      <motion.div
+        className="w-full max-w-md"
+        initial={{ opacity: 0, y: 24, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 16, scale: 0.97 }}
+        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="rounded-3xl p-8" style={cardStyle}>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2.5">
+              <div
+                className="w-8 h-8 rounded-xl flex items-center justify-center"
+                style={{
+                  background: "oklch(0.72 0.18 220 / 0.12)",
+                  border: "1px solid oklch(0.72 0.18 220 / 0.3)",
+                }}
+              >
+                <img
+                  src="/assets/generated/innovexa-logo-mark-transparent.dim_80x80.png"
+                  alt="Innovexa AI"
+                  className="w-5 h-5 object-contain"
+                />
+              </div>
+              <h2
+                className="font-display font-bold text-lg tracking-tight"
+                style={{ color: "oklch(0.94 0.008 240)" }}
+              >
+                {view === "choose"
+                  ? "Welcome to Innovexa AI"
+                  : view === "create"
+                    ? "Create Account"
+                    : "Log In"}
+              </h2>
+            </div>
+            <button
+              type="button"
+              data-ocid="account_modal.close_button"
+              onClick={handleClose}
+              className="text-muted-foreground hover:text-foreground transition-colors w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5"
+            >
+              ✕
+            </button>
+          </div>
+
+          <AnimatePresence mode="wait">
+            {view === "choose" && (
+              <motion.div
+                key="choose"
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 12 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-3"
+              >
+                <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
+                  Sign in or create an account to save your chat history and
+                  sync across all your devices.
+                </p>
+
+                <button
+                  type="button"
+                  data-ocid="account_modal.create_account_button"
+                  onClick={() => {
+                    resetForm();
+                    setView("create");
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90"
+                  style={{
+                    background: "oklch(0.72 0.18 220 / 0.15)",
+                    border: "1px solid oklch(0.72 0.18 220 / 0.35)",
+                    color: "oklch(0.88 0.08 220)",
+                  }}
+                >
+                  <User className="w-4 h-4 flex-shrink-0" />
+                  <span>Create Account</span>
+                </button>
+
+                <button
+                  type="button"
+                  data-ocid="account_modal.login_button"
+                  onClick={() => {
+                    resetForm();
+                    setView("login");
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:opacity-90"
+                  style={{
+                    background: "oklch(0.72 0.18 270 / 0.12)",
+                    border: "1px solid oklch(0.72 0.18 270 / 0.3)",
+                    color: "oklch(0.82 0.10 270)",
+                  }}
+                >
+                  <LogIn className="w-4 h-4 flex-shrink-0" />
+                  <span>Log In</span>
+                </button>
+
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    data-ocid="account_modal.continue_no_signin_button"
+                    onClick={handleClose}
+                    className="w-full flex flex-col items-center gap-1 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/5"
+                    style={{ color: "oklch(0.65 0.01 260)" }}
+                  >
+                    <span>Continue not signed in</span>
+                    <span
+                      className="text-xs"
+                      style={{ color: "oklch(0.50 0.01 260)" }}
+                    >
+                      Your history and chats will not be saved
+                    </span>
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {view === "create" && (
+              <motion.div
+                key="create"
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={{ duration: 0.2 }}
+              >
+                <form onSubmit={handleCreate} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="create_username"
+                      className="text-xs font-semibold tracking-wide uppercase"
+                      style={{ color: "oklch(0.72 0.016 240)" }}
+                    >
+                      Username
+                    </label>
+                    <Input
+                      id="create_username"
+                      data-ocid="account_modal.create_username.input"
+                      type="text"
+                      autoComplete="username"
+                      autoCapitalize="off"
+                      placeholder="Choose a username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      disabled={isSubmitting}
+                      className="bg-transparent border-border/60 focus-visible:border-[oklch(0.72_0.18_220/0.6)] focus-visible:ring-[oklch(0.72_0.18_220/0.2)] placeholder:text-muted-foreground/50 rounded-xl h-11"
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="create_password"
+                      className="text-xs font-semibold tracking-wide uppercase"
+                      style={{ color: "oklch(0.72 0.016 240)" }}
+                    >
+                      Password
+                    </label>
+                    <div className="relative">
+                      <Input
+                        id="create_password"
+                        data-ocid="account_modal.create_password.input"
+                        type={showPassword ? "text" : "password"}
+                        autoComplete="new-password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        disabled={isSubmitting}
+                        className="bg-transparent border-border/60 focus-visible:border-[oklch(0.72_0.18_220/0.6)] focus-visible:ring-[oklch(0.72_0.18_220/0.2)] placeholder:text-muted-foreground/50 rounded-xl h-11 pr-10"
+                        style={inputStyle}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="create_confirm"
+                      className="text-xs font-semibold tracking-wide uppercase"
+                      style={{ color: "oklch(0.72 0.016 240)" }}
+                    >
+                      Confirm Password
+                    </label>
+                    <div className="relative">
+                      <Input
+                        id="create_confirm"
+                        data-ocid="account_modal.create_confirm_password.input"
+                        type={showConfirm ? "text" : "password"}
+                        autoComplete="new-password"
+                        placeholder="••••••••"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        disabled={isSubmitting}
+                        className="bg-transparent border-border/60 focus-visible:border-[oklch(0.72_0.18_220/0.6)] focus-visible:ring-[oklch(0.72_0.18_220/0.2)] placeholder:text-muted-foreground/50 rounded-xl h-11 pr-10"
+                        style={inputStyle}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirm((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showConfirm ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <AnimatePresence>
+                    {error && (
+                      <motion.div
+                        data-ocid="account_modal.create.error_state"
+                        className="flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm"
+                        style={{
+                          background: "oklch(0.62 0.22 25 / 0.1)",
+                          border: "1px solid oklch(0.62 0.22 25 / 0.3)",
+                          color: "oklch(0.85 0.08 25)",
+                        }}
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <span>{error}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetForm();
+                        setView("choose");
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:bg-white/5"
+                      style={{
+                        color: "oklch(0.65 0.01 260)",
+                        border: "1px solid oklch(0.22 0.015 260)",
+                      }}
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Back
+                    </button>
+                    <Button
+                      data-ocid="account_modal.create_submit_button"
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="flex-1 h-11 text-sm font-bold rounded-xl transition-all duration-300"
+                      style={{
+                        background: isSubmitting
+                          ? "oklch(0.55 0.14 220)"
+                          : "oklch(0.72 0.18 220)",
+                        color: "oklch(0.97 0.005 220)",
+                        boxShadow: isSubmitting
+                          ? "none"
+                          : "0 0 24px oklch(0.72 0.18 220 / 0.35)",
+                      }}
+                    >
+                      {isSubmitting ? (
+                        <span className="flex items-center gap-2 justify-center">
+                          <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          Creating...
+                        </span>
+                      ) : (
+                        "Create Account"
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </motion.div>
+            )}
+
+            {view === "login" && (
+              <motion.div
+                key="login"
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={{ duration: 0.2 }}
+              >
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="login_username"
+                      className="text-xs font-semibold tracking-wide uppercase"
+                      style={{ color: "oklch(0.72 0.016 240)" }}
+                    >
+                      Username
+                    </label>
+                    <Input
+                      id="login_username"
+                      data-ocid="account_modal.login_username.input"
+                      type="text"
+                      autoComplete="username"
+                      autoCapitalize="off"
+                      placeholder="Your username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      disabled={isSubmitting}
+                      className="bg-transparent border-border/60 focus-visible:border-[oklch(0.72_0.18_270/0.6)] focus-visible:ring-[oklch(0.72_0.18_270/0.2)] placeholder:text-muted-foreground/50 rounded-xl h-11"
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="login_password"
+                      className="text-xs font-semibold tracking-wide uppercase"
+                      style={{ color: "oklch(0.72 0.016 240)" }}
+                    >
+                      Password
+                    </label>
+                    <div className="relative">
+                      <Input
+                        id="login_password"
+                        data-ocid="account_modal.login_password.input"
+                        type={showPassword ? "text" : "password"}
+                        autoComplete="current-password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        disabled={isSubmitting}
+                        className="bg-transparent border-border/60 focus-visible:border-[oklch(0.72_0.18_270/0.6)] focus-visible:ring-[oklch(0.72_0.18_270/0.2)] placeholder:text-muted-foreground/50 rounded-xl h-11 pr-10"
+                        style={inputStyle}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <AnimatePresence>
+                    {error && (
+                      <motion.div
+                        data-ocid="account_modal.login.error_state"
+                        className="flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm"
+                        style={{
+                          background: "oklch(0.62 0.22 25 / 0.1)",
+                          border: "1px solid oklch(0.62 0.22 25 / 0.3)",
+                          color: "oklch(0.85 0.08 25)",
+                        }}
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <span>{error}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetForm();
+                        setView("choose");
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:bg-white/5"
+                      style={{
+                        color: "oklch(0.65 0.01 260)",
+                        border: "1px solid oklch(0.22 0.015 260)",
+                      }}
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Back
+                    </button>
+                    <Button
+                      data-ocid="account_modal.login_submit_button"
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="flex-1 h-11 text-sm font-bold rounded-xl transition-all duration-300"
+                      style={{
+                        background: isSubmitting
+                          ? "oklch(0.55 0.14 270)"
+                          : "oklch(0.72 0.18 270)",
+                        color: "oklch(0.97 0.005 270)",
+                        boxShadow: isSubmitting
+                          ? "none"
+                          : "0 0 24px oklch(0.72 0.18 270 / 0.35)",
+                      }}
+                    >
+                      {isSubmitting ? (
+                        <span className="flex items-center gap-2 justify-center">
+                          <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          Logging in...
+                        </span>
+                      ) : (
+                        "Log In"
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
 // ─── Sign-In Page ─────────────────────────────────────────────────────────────
 
@@ -657,9 +1212,9 @@ function LandingPage({
   onTryInnovexa,
   onUltraClick,
   signedInUser,
-  onIILogin,
-  onIILogout,
-  iiLoggedIn,
+  onOpenAccountModal,
+  accountUser,
+  onAccountLogout,
 }: {
   onTryInnovexa: () => void;
   onUltraClick: () => void;
@@ -667,6 +1222,9 @@ function LandingPage({
   onIILogin: () => void;
   onIILogout: () => void;
   iiLoggedIn: boolean;
+  onOpenAccountModal: () => void;
+  accountUser: { username: string } | null;
+  onAccountLogout: () => void;
 }) {
   return (
     <div
@@ -749,31 +1307,31 @@ function LandingPage({
           </Button>
 
           <div className="flex flex-col items-center gap-0.5">
-            {iiLoggedIn ? (
+            {accountUser ? (
               <button
-                data-ocid="landing.ii_logout_button"
+                data-ocid="landing.account_logout_button"
                 type="button"
-                onClick={onIILogout}
+                onClick={onAccountLogout}
                 className="flex items-center gap-1.5 rounded-lg text-xs font-semibold px-3 py-1.5 transition-all duration-200"
                 style={{
-                  background: "oklch(0.72 0.18 270 / 0.12)",
-                  border: "1px solid oklch(0.72 0.18 270 / 0.3)",
-                  color: "oklch(0.72 0.18 270)",
+                  background: "oklch(0.72 0.18 220 / 0.12)",
+                  border: "1px solid oklch(0.72 0.18 220 / 0.3)",
+                  color: "oklch(0.72 0.18 220)",
                 }}
               >
                 <User className="w-3.5 h-3.5" />
-                Signed In
+                {accountUser.username}
               </button>
             ) : (
               <button
-                data-ocid="landing.ii_login_button"
+                data-ocid="landing.account_login_button"
                 type="button"
-                onClick={onIILogin}
+                onClick={onOpenAccountModal}
                 className="flex items-center gap-1.5 rounded-lg text-xs font-semibold px-3 py-1.5 transition-all duration-200"
                 style={{
-                  background: "oklch(0.72 0.18 270 / 0.12)",
-                  border: "1px solid oklch(0.72 0.18 270 / 0.3)",
-                  color: "oklch(0.72 0.18 270)",
+                  background: "oklch(0.72 0.18 220 / 0.12)",
+                  border: "1px solid oklch(0.72 0.18 220 / 0.3)",
+                  color: "oklch(0.72 0.18 220)",
                 }}
               >
                 <LogIn className="w-3.5 h-3.5" />
@@ -1094,9 +1652,9 @@ function ModeSelectStep({
   onUltraLocked,
   signedInUser,
   onSignOut,
-  onIILogin,
-  onIILogout,
-  iiLoggedIn,
+  onOpenAccountModal,
+  accountUser,
+  onAccountLogout,
 }: {
   selectedMode: AppMode;
   onSelectMode: (mode: AppMode) => void;
@@ -1108,6 +1666,9 @@ function ModeSelectStep({
   onIILogin: () => void;
   onIILogout: () => void;
   iiLoggedIn: boolean;
+  onOpenAccountModal: () => void;
+  accountUser: { username: string } | null;
+  onAccountLogout: () => void;
 }) {
   const allModes = [
     Mode.fast,
@@ -1186,31 +1747,31 @@ function ModeSelectStep({
               </>
             )}
             <div className="flex flex-col items-end gap-0.5">
-              {iiLoggedIn ? (
+              {accountUser ? (
                 <button
-                  data-ocid="mode.ii_logout_button"
+                  data-ocid="mode.account_logout_button"
                   type="button"
-                  onClick={onIILogout}
+                  onClick={onAccountLogout}
                   className="flex items-center gap-1.5 rounded-lg text-xs font-semibold px-3 py-1.5 transition-all duration-200"
                   style={{
-                    background: "oklch(0.72 0.18 270 / 0.12)",
-                    border: "1px solid oklch(0.72 0.18 270 / 0.3)",
-                    color: "oklch(0.72 0.18 270)",
+                    background: "oklch(0.72 0.18 220 / 0.12)",
+                    border: "1px solid oklch(0.72 0.18 220 / 0.3)",
+                    color: "oklch(0.72 0.18 220)",
                   }}
                 >
                   <User className="w-3.5 h-3.5" />
-                  Signed In
+                  {accountUser.username}
                 </button>
               ) : (
                 <button
-                  data-ocid="mode.ii_login_button"
+                  data-ocid="mode.account_login_button"
                   type="button"
-                  onClick={onIILogin}
+                  onClick={onOpenAccountModal}
                   className="flex items-center gap-1.5 rounded-lg text-xs font-semibold px-3 py-1.5 transition-all duration-200"
                   style={{
-                    background: "oklch(0.72 0.18 270 / 0.12)",
-                    border: "1px solid oklch(0.72 0.18 270 / 0.3)",
-                    color: "oklch(0.72 0.18 270)",
+                    background: "oklch(0.72 0.18 220 / 0.12)",
+                    border: "1px solid oklch(0.72 0.18 220 / 0.3)",
+                    color: "oklch(0.72 0.18 220)",
                   }}
                 >
                   <LogIn className="w-3.5 h-3.5" />
@@ -1671,9 +2232,9 @@ function ChatScreen({
   signedInUser,
   savedConversations,
   onLoadConversation,
-  iiLoggedIn,
   showHistory,
   onToggleHistory,
+  accountLoggedIn,
 }: {
   mode: AppMode;
   messages: ChatMessage[];
@@ -1689,6 +2250,7 @@ function ChatScreen({
   iiLoggedIn: boolean;
   showHistory: boolean;
   onToggleHistory: () => void;
+  accountLoggedIn: boolean;
 }) {
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1937,8 +2499,8 @@ function ChatScreen({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* History button (II logged in only) */}
-        {iiLoggedIn && (
+        {/* History button (account logged in only) */}
+        {accountLoggedIn && (
           <Button
             data-ocid="chat.history_button"
             onClick={onToggleHistory}
@@ -2297,20 +2859,6 @@ function ChatScreen({
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 
-// ─── Conversation helpers ──────────────────────────────────────────────────────
-function loadConversations(pid: string): SavedConversation[] {
-  try {
-    const raw = localStorage.getItem(`innovexa_convs_${pid}`);
-    return raw ? (JSON.parse(raw) as SavedConversation[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveConversationsToStorage(pid: string, convs: SavedConversation[]) {
-  localStorage.setItem(`innovexa_convs_${pid}`, JSON.stringify(convs));
-}
-
 export default function App() {
   const [screen, setScreen] = useState<Screen>(() => {
     // Restore screen from sessionStorage if signed in
@@ -2333,6 +2881,13 @@ export default function App() {
   const principalId = identity?.getPrincipal().toText();
   const iiLoggedIn = !!principalId;
 
+  // Account-based auth (username/password accounts)
+  const [accountUser, setAccountUser] = useState<{
+    username: string;
+    password: string;
+  } | null>(null);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+
   // Conversation persistence
   const [savedConversations, setSavedConversations] = useState<
     SavedConversation[]
@@ -2340,25 +2895,60 @@ export default function App() {
   const [currentConvId, setCurrentConvId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
 
-  // Load conversations when II identity changes
-  useEffect(() => {
-    if (principalId) {
-      setSavedConversations(loadConversations(principalId));
-    }
-  }, [principalId]);
+  // Handle account login (from modal: create or log in)
+  const handleAccountLogin = useCallback(
+    (
+      username: string,
+      password: string,
+      backendConvs: BackendConversation[],
+    ) => {
+      setAccountUser({ username, password });
+      const loaded = backendConvs.map((c) => ({
+        id: c.id,
+        title: c.title,
+        messages: (() => {
+          try {
+            return JSON.parse(c.messages) as ChatMessage[];
+          } catch {
+            return [];
+          }
+        })(),
+        mode: c.mode as AppMode,
+        timestamp: Number(c.timestamp),
+      }));
+      setSavedConversations(loaded);
+      setShowAccountModal(false);
+    },
+    [],
+  );
 
-  // Auto-save conversation after messages change (if logged in via II)
+  const handleAccountLogout = useCallback(() => {
+    setAccountUser(null);
+    setSavedConversations([]);
+    setCurrentConvId(null);
+    setShowHistory(false);
+  }, []);
+
+  // Auto-save conversation after messages change (if account logged in)
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional
   useEffect(() => {
-    if (!principalId || messages.length === 0) return;
+    if (!accountUser || messages.length === 0 || !actor) return;
     const firstMsg = messages[0];
     const title =
       firstMsg.content.slice(0, 40) +
       (firstMsg.content.length > 40 ? "..." : "");
     const convId = currentConvId ?? `conv-${Date.now()}`;
     if (!currentConvId) setCurrentConvId(convId);
-    const existing = loadConversations(principalId);
-    const idx = existing.findIndex((c) => c.id === convId);
+    const backendConv: BackendConversation = {
+      id: convId,
+      title,
+      messages: JSON.stringify(messages),
+      mode: mode as string,
+      timestamp: BigInt(Date.now()),
+    };
+    actor
+      .saveConversation(accountUser.username, accountUser.password, backendConv)
+      .catch(() => {});
     const updated: SavedConversation = {
       id: convId,
       title,
@@ -2366,12 +2956,15 @@ export default function App() {
       mode,
       timestamp: Date.now(),
     };
-    if (idx >= 0) existing[idx] = updated;
-    else existing.unshift(updated);
-    const trimmed = existing.slice(0, 20);
-    saveConversationsToStorage(principalId, trimmed);
-    setSavedConversations(trimmed);
-  }, [messages, principalId]);
+    setSavedConversations((prev) => {
+      const idx = prev.findIndex((c) => c.id === convId);
+      const next =
+        idx >= 0
+          ? [...prev.slice(0, idx), updated, ...prev.slice(idx + 1)]
+          : [updated, ...prev];
+      return next.slice(0, 20);
+    });
+  }, [messages, accountUser]);
 
   const handleSignIn = useCallback((username: string) => {
     sessionStorage.setItem("innovexa_user", username);
@@ -2484,6 +3077,18 @@ export default function App() {
       className="min-h-screen"
       style={{ background: "oklch(0.10 0.006 260)" }}
     >
+      {/* Account Modal */}
+      <AnimatePresence>
+        {showAccountModal && (
+          <AccountModal
+            isOpen={showAccountModal}
+            onClose={() => setShowAccountModal(false)}
+            onAccountLogin={handleAccountLogin}
+            actor={actor}
+          />
+        )}
+      </AnimatePresence>
+
       <AnimatePresence mode="wait">
         {screen === "landing" && (
           <motion.div
@@ -2500,6 +3105,9 @@ export default function App() {
               onIILogin={iiLogin}
               onIILogout={iiClear}
               iiLoggedIn={iiLoggedIn}
+              onOpenAccountModal={() => setShowAccountModal(true)}
+              accountUser={accountUser}
+              onAccountLogout={handleAccountLogout}
             />
           </motion.div>
         )}
@@ -2553,6 +3161,9 @@ export default function App() {
               onIILogin={iiLogin}
               onIILogout={iiClear}
               iiLoggedIn={iiLoggedIn}
+              onOpenAccountModal={() => setShowAccountModal(true)}
+              accountUser={accountUser}
+              onAccountLogout={handleAccountLogout}
             />
           </motion.div>
         )}
@@ -2581,6 +3192,7 @@ export default function App() {
               iiLoggedIn={iiLoggedIn}
               showHistory={showHistory}
               onToggleHistory={() => setShowHistory((v) => !v)}
+              accountLoggedIn={accountUser !== null}
             />
           </motion.div>
         )}

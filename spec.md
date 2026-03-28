@@ -1,32 +1,40 @@
 # Innovexa AI
 
 ## Current State
-The app has an Ultra sign-in (username/password for team members). Internet Identity is provisioned (InternetIdentityProvider wraps App, useInternetIdentity hook exists) but not used in the UI. Conversations are stored only in React state -- lost on reload. No II login button exists in the UI.
+- Internet Identity (II) is used for login; conversations saved in localStorage keyed by II principal
+- History sidebar only shown when II is logged in
+- Ultra access gated by team username/password (hardcoded)
+- No cross-device sync (localStorage is device-local)
 
 ## Requested Changes (Diff)
 
 ### Add
-- Internet Identity login button in the landing page nav and mode-select header
-- When signed in via II, save all chat messages to localStorage keyed by the user's principal ID
-- Load saved conversations from localStorage on II login
-- Show a small conversation history panel/list when signed in via II (accessible from chat screen or mode-select)
-- The II login button UI must say "Powered by Innovexa Secure Login" (not "Powered by Internet Identity")
-- The II login flow context text should say "Log in to Innovexa.ai"
+- Custom account system: username + password stored on the backend
+- `createAccount(username, password)` backend function
+- `loginAccount(username, password)` backend function returning saved conversations
+- `saveUserConversation(username, password, conversation)` backend function
+- `deleteUserConversation(username, password, convId)` backend function
+- Account modal (popup window) with three options:
+  1. **Create Account** — shows username + password form; creates account; enables history
+  2. **Log In** — shows username + password form; loads previous chats; enables history
+  3. **Continue not signed in** — dismisses modal; no history sidebar shown; small text next to button: "Your history and chats will not be saved"
+- History sidebar visible only when logged into a custom account (or Ultra workers)
+- Cross-device sync: same username/password on any device → same chat history (backend storage)
 
 ### Modify
-- App component: import and use `useInternetIdentity` to get `identity`, `login`, `clear`
-- When II identity is available, auto-save messages to localStorage after each `handleSendMessage` call
-- Landing nav: add a "Sign In" button that triggers II login; when signed in show principal short ID + logout
-- Mode-select and chat screens: show II login status
+- Current "Sign In" (II) button triggers the new account modal instead of/in addition to II flow
+- History is now stored in the backend per username, not localStorage
+- History sidebar shown to: custom account users + Ultra workers
+- Not signed in: no history sidebar at all
 
 ### Remove
-- Nothing existing is removed
+- localStorage-based conversation storage for II users (replaced by backend account storage)
 
 ## Implementation Plan
-1. In `App.tsx`, import `useInternetIdentity` from `./hooks/useInternetIdentity`
-2. Add state + logic to save/load conversations from localStorage keyed by `identity.getPrincipal().toText()`
-3. Add II login button (styled to match dark theme) in the landing nav and mode-select header; button label: "Sign In"; below/near button show small text "Powered by Innovexa Secure Login"
-4. When II identity is present, after each AI reply, save full messages array to localStorage as `innovexa_conv_<principal>`
-5. When II identity becomes available, load saved conversation from localStorage and offer to restore it
-6. Show a conversation history list when signed in (can be a small dropdown or sidebar with past conversation sessions)
-7. Show logout option when signed in
+1. Add Motoko backend functions: createAccount, loginAccount, saveUserConversation, deleteUserConversation, getUserConversations
+2. Store accounts as a HashMap(username -> (passwordHash, [conversation]))
+3. Add AccountModal component in frontend with Create Account / Log In / Continue not signed in tabs/views
+4. Add small text "Your history and chats will not be saved" next to Continue not signed in button
+5. When logged into account: fetch conversations from backend on mount, save to backend on each message
+6. Replace localStorage history with backend history calls
+7. Show history sidebar only when `accountUser` is set

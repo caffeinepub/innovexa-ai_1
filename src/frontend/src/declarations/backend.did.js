@@ -8,6 +8,13 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const Conversation = IDL.Record({
+  'id' : IDL.Text,
+  'title' : IDL.Text,
+  'messages' : IDL.Text,
+  'mode' : IDL.Text,
+  'timestamp' : IDL.Int,
+});
 export const Mode = IDL.Variant({
   'pro' : IDL.Null,
   'fast' : IDL.Null,
@@ -34,6 +41,23 @@ export const TransformOutput = IDL.Record({
 });
 
 export const idlService = IDL.Service({
+  'createAccount' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
+  'deleteConversation' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Bool],
+      [],
+    ),
+  'getConversations' : IDL.Func(
+      [IDL.Text, IDL.Text],
+      [IDL.Vec(Conversation)],
+      ['query'],
+    ),
+  'loginAccount' : IDL.Func([IDL.Text, IDL.Text], [IDL.Vec(Conversation)], []),
+  'saveConversation' : IDL.Func(
+      [IDL.Text, IDL.Text, Conversation],
+      [IDL.Bool],
+      [],
+    ),
   'sendMessage' : IDL.Func(
       [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)), IDL.Text, Mode],
       [IDL.Text],
@@ -45,6 +69,13 @@ export const idlService = IDL.Service({
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const Conversation = IDL.Record({
+    'id' : IDL.Text,
+    'title' : IDL.Text,
+    'messages' : IDL.Text,
+    'mode' : IDL.Text,
+    'timestamp' : IDL.Int,
+  });
   const Mode = IDL.Variant({
     'pro' : IDL.Null,
     'fast' : IDL.Null,
@@ -68,6 +99,27 @@ export const idlFactory = ({ IDL }) => {
   });
   
   return IDL.Service({
+    'createAccount' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
+    'deleteConversation' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Bool],
+        [],
+      ),
+    'getConversations' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Vec(Conversation)],
+        ['query'],
+      ),
+    'loginAccount' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Vec(Conversation)],
+        [],
+      ),
+    'saveConversation' : IDL.Func(
+        [IDL.Text, IDL.Text, Conversation],
+        [IDL.Bool],
+        [],
+      ),
     'sendMessage' : IDL.Func(
         [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)), IDL.Text, Mode],
         [IDL.Text],

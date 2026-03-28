@@ -10,6 +10,13 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface Conversation {
+  'id' : string,
+  'title' : string,
+  'messages' : string,
+  'mode' : string,
+  'timestamp' : bigint,
+}
 export type Mode = { 'pro' : null } |
   { 'fast' : null } |
   { 'thinking' : null } |
@@ -30,6 +37,11 @@ export interface http_request_result {
   'headers' : Array<http_header>,
 }
 export interface _SERVICE {
+  'createAccount' : ActorMethod<[string, string], boolean>,
+  'deleteConversation' : ActorMethod<[string, string, string], boolean>,
+  'getConversations' : ActorMethod<[string, string], Array<Conversation>>,
+  'loginAccount' : ActorMethod<[string, string], Array<Conversation>>,
+  'saveConversation' : ActorMethod<[string, string, Conversation], boolean>,
   'sendMessage' : ActorMethod<[Array<[string, string]>, string, Mode], string>,
   'transform' : ActorMethod<[TransformInput], TransformOutput>,
 }
