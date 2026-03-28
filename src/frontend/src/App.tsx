@@ -2236,6 +2236,7 @@ function ChatScreen({
   showHistory,
   onToggleHistory,
   accountLoggedIn,
+  onSignOut,
 }: {
   mode: AppMode;
   messages: ChatMessage[];
@@ -2252,6 +2253,7 @@ function ChatScreen({
   showHistory: boolean;
   onToggleHistory: () => void;
   accountLoggedIn: boolean;
+  onSignOut: () => void;
 }) {
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -2527,6 +2529,20 @@ function ChatScreen({
           <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
           <span className="hidden sm:inline">New Chat</span>
         </Button>
+
+        {/* Sign out of work account (Ultra workers) */}
+        {signedInUser && (
+          <Button
+            onClick={onSignOut}
+            variant="ghost"
+            size="sm"
+            className="flex items-center gap-1.5 text-xs font-medium hover:bg-accent/50 rounded-lg"
+            style={{ color: "oklch(0.65 0.01 260)" }}
+          >
+            <LogOut className="w-3.5 h-3.5" strokeWidth={2} />
+            <span className="hidden sm:inline">Sign out of work account</span>
+          </Button>
+        )}
       </header>
 
       {/* Conversation History Sidebar */}
@@ -3194,6 +3210,7 @@ export default function App() {
               showHistory={showHistory}
               onToggleHistory={() => setShowHistory((v) => !v)}
               accountLoggedIn={accountUser !== null}
+              onSignOut={handleSignOut}
             />
           </motion.div>
         )}
