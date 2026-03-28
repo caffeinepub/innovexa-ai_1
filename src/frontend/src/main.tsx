@@ -14,11 +14,6 @@ declare global {
   }
 }
 
-// Apply dark mode permanently
-document.documentElement.classList.add("dark");
-document.documentElement.style.background = "oklch(0.10 0.006 260)";
-document.body.style.background = "oklch(0.10 0.006 260)";
-
 const queryClient = new QueryClient();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
