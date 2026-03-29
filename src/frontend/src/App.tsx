@@ -2368,7 +2368,7 @@ function ChatScreen({
                   : "oklch(0.72 0.18 220)",
               }}
             >
-              {isUltraMode ? "Ultra" : "Innovexa AI"}
+              {isUltraMode ? "Ultra" : "AI"}
             </span>
           </span>
           {/* Signed-in user badge */}
