@@ -1423,8 +1423,6 @@ function LandingPage({
           className="text-center mb-6 max-w-3xl"
         >
           <h1 className="font-display text-5xl md:text-7xl font-bold tracking-tight text-foreground leading-[1.08] mb-4">
-            The AI That
-            <br />
             <span
               className="text-glow"
               style={{ color: "oklch(0.72 0.18 220)" }}
