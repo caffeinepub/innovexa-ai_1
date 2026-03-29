@@ -25,12 +25,13 @@ actor {
 
   let accounts = Map.empty<Text, Account>();
 
-  // Kept for stable variable compatibility with previous version
+  // Retained for stable variable compatibility with previous versions
   let GROQ_API_KEY = "";
   let GROQ_URL = "";
+  let OPENROUTER_API_KEY = "";
+  let OPENROUTER_URL = "";
 
-  let OPENROUTER_API_KEY = "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";
-  let OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+  let POLLINATIONS_URL = "https://text.pollinations.ai/openai";
 
   func jsonEscape(s : Text) : Text {
     var result = "";
@@ -56,18 +57,21 @@ actor {
     };
     messages #= ",{\"role\":\"user\",\"content\":\"" # jsonEscape(userMessage) # "\"}";
 
-    let (model, maxTokens, temperature) = switch (mode) {
-      case (#fast)     { ("meta-llama/llama-3.3-70b-instruct:free", "2048", "0.5") };
-      case (#thinking) { ("meta-llama/llama-3.3-70b-instruct:free", "4096", "0.7") };
-      case (#pro)      { ("meta-llama/llama-3.3-70b-instruct:free", "6144", "0.7") };
-      case (#ultra)    { ("meta-llama/llama-3.3-70b-instruct:free", "8192", "0.9") };
+    let (maxTokens) = switch (mode) {
+      case (#fast)     { ("1024") };
+      case (#thinking) { ("2048") };
+      case (#pro)      { ("4096") };
+      case (#ultra)    { ("6144") };
     };
 
+    let seed = Time.now() / 1_000_000_000;
+    let seedText = seed.toText();
+
     "{" #
-    "\"model\":\"" # model # "\"," #
+    "\"model\":\"openai\"," #
     "\"messages\":[" # messages # "]," #
     "\"max_tokens\":" # maxTokens # "," #
-    "\"temperature\":" # temperature #
+    "\"seed\":" # seedText #
     "}";
   };
 
@@ -118,17 +122,26 @@ actor {
       return "AI service error. Please try again.";
     };
 
+    // Try to extract content from OpenAI-compatible response
     let markers : [Text] = [
-      "\"content\": \"",
       "\"content\":\"",
+      "\"content\": \"",
     ];
 
     for (marker in markers.vals()) {
       let splits = jsonText.split(#text marker).toArray();
       let n = splits.size();
       if (n >= 2) {
-        let decoded = decodeJsonString(splits[1]);
-        if (decoded.size() > 0) { return decoded };
+        // Skip the first split which is before system/user content
+        // The last assistant content is typically the one we want
+        var bestReply = "";
+        var i = 1;
+        while (i < n) {
+          let decoded = decodeJsonString(splits[i]);
+          if (decoded.size() > 0) { bestReply := decoded };
+          i += 1;
+        };
+        if (bestReply.size() > 0) { return bestReply };
       };
     };
 
@@ -165,12 +178,10 @@ actor {
 
     try {
       let httpResponse = await OutCall.httpPostRequest(
-        OPENROUTER_URL,
+        POLLINATIONS_URL,
         [
           { name = "Content-Type"; value = "application/json" },
-          { name = "Authorization"; value = "Bearer " # OPENROUTER_API_KEY },
-          { name = "HTTP-Referer"; value = "https://innovexa.ai" },
-          { name = "X-Title"; value = "Innovexa AI" },
+          { name = "Accept"; value = "application/json" },
         ],
         body,
         transform,
