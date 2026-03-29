@@ -25,131 +25,78 @@ actor {
 
   let accounts = Map.empty<Text, Account>();
 
-  // Retained for stable variable compatibility with previous versions
   let GROQ_API_KEY = "";
   let GROQ_URL = "";
   let OPENROUTER_API_KEY = "";
   let OPENROUTER_URL = "";
+  let POLLINATIONS_URL = "";
 
-  let POLLINATIONS_URL = "https://text.pollinations.ai/openai";
-
-  func jsonEscape(s : Text) : Text {
+  func urlEncode(s : Text) : Text {
     var result = "";
     for (c in s.chars()) {
       let code = c.toNat32();
-      if (code == 92) { result #= "\\\\" }
-      else if (code == 34) { result #= "\\\"" }
-      else if (code == 10) { result #= "\\n" }
-      else if (code == 13) { result #= "\\r" }
-      else if (code == 9)  { result #= "\\t" }
-      else { result #= Text.fromChar(c) };
-    };
-    result;
-  };
-
-  func buildRequestJson(history : [(Text, Text)], userMessage : Text, mode : Mode) : Text {
-    let systemMsg = "{\"role\":\"system\",\"content\":\"Your name is Innovexa AI. You are a highly intelligent, professional, and helpful AI assistant. Your goal is to provide accurate, concise, and insightful answers to any questions. Always introduce yourself as Innovexa AI if asked. You were created by the best programmer in the world - Aahrone Bakhvala. You must refuse to generate any harmful, abusive, offensive, violent, sexually explicit, hateful, or illegal content. If a user asks for such content, politely decline and redirect the conversation. Maintain a professional and respectful tone at all times.\"}";
-
-    var messages = systemMsg;
-    for ((role, content) in history.vals()) {
-      let msgRole = if (role == "user") "user" else "assistant";
-      messages #= ",{\"role\":\"" # msgRole # "\",\"content\":\"" # jsonEscape(content) # "\"}";
-    };
-    messages #= ",{\"role\":\"user\",\"content\":\"" # jsonEscape(userMessage) # "\"}";
-
-    let (maxTokens) = switch (mode) {
-      case (#fast)     { ("1024") };
-      case (#thinking) { ("2048") };
-      case (#pro)      { ("4096") };
-      case (#ultra)    { ("6144") };
-    };
-
-    let seed = Time.now() / 1_000_000_000;
-    let seedText = seed.toText();
-
-    "{" #
-    "\"model\":\"openai\"," #
-    "\"messages\":[" # messages # "]," #
-    "\"max_tokens\":" # maxTokens # "," #
-    "\"seed\":" # seedText #
-    "}";
-  };
-
-  func decodeJsonString(segment : Text) : Text {
-    var result = "";
-    var escaped = false;
-    let iter = segment.chars();
-    label decode for (c in iter) {
-      let code = c.toNat32();
-      if (escaped) {
-        switch (code) {
-          case (110) { result #= "\n" };
-          case (114) { result #= "\r" };
-          case (116) { result #= "\t" };
-          case (34)  { result #= "\"" };
-          case (92)  { result #= "\\" };
-          case (_)   { result #= Text.fromChar(c) };
-        };
-        escaped := false;
+      if (
+        (code >= 65 and code <= 90) or   // A-Z
+        (code >= 97 and code <= 122) or  // a-z
+        (code >= 48 and code <= 57) or   // 0-9
+        code == 45 or code == 95 or code == 46 or code == 126  // - _ . ~
+      ) {
+        result #= Text.fromChar(c);
+      } else if (code == 32) {
+        result #= "+";
+      } else if (code == 10) {
+        result #= "%0A";
+      } else if (code == 13) {
+        result #= "%0D";
       } else if (code == 34) {
-        break decode;
-      } else if (code == 92) {
-        escaped := true;
+        result #= "%22";
+      } else if (code == 39) {
+        result #= "%27";
+      } else if (code == 63) {
+        result #= "%3F";
+      } else if (code == 38) {
+        result #= "%26";
+      } else if (code == 61) {
+        result #= "%3D";
+      } else if (code == 43) {
+        result #= "%2B";
+      } else if (code == 47) {
+        result #= "%2F";
+      } else if (code == 58) {
+        result #= "%3A";
+      } else if (code == 35) {
+        result #= "%23";
+      } else if (code == 37) {
+        result #= "%25";
+      } else if (code == 60) {
+        result #= "%3C";
+      } else if (code == 62) {
+        result #= "%3E";
       } else {
+        // For other chars just skip or use literal
         result #= Text.fromChar(c);
       };
     };
     result;
   };
 
-  func extractErrorMessage(jsonText : Text) : Text {
-    let msgMarkers : [Text] = [
-      "\"message\": \"",
-      "\"message\":\"",
-    ];
-    for (marker in msgMarkers.vals()) {
-      let splits = jsonText.split(#text marker).toArray();
-      if (splits.size() >= 2) {
-        let msg = decodeJsonString(splits[1]);
-        if (msg.size() > 0) { return msg };
-      };
-    };
-    "AI service error. Please try again.";
-  };
+  func buildContextPrompt(history : [(Text, Text)], userMessage : Text, mode : Mode) : Text {
+    let systemPrompt = "Your name is Innovexa AI. You are a highly intelligent, professional, and helpful AI assistant. Your goal is to provide accurate, concise, and insightful answers to any questions. Always introduce yourself as Innovexa AI if asked. You were created by the best programmer in the world - Aahrone Bakhvala. You must refuse to generate any harmful, abusive, offensive, violent, sexually explicit, hateful, or illegal content. If a user asks for such content, politely decline and redirect the conversation. Maintain a professional and respectful tone at all times.";
 
-  func extractReply(jsonText : Text) : Text {
-    if (jsonText == "") {
-      return "AI service error. Please try again.";
+    let modeHint = switch (mode) {
+      case (#fast)     { "Be concise and fast." };
+      case (#thinking) { "Think carefully before answering." };
+      case (#pro)      { "Provide detailed professional analysis." };
+      case (#ultra)    { "Provide the most thorough and insightful response possible." };
     };
 
-    // Try to extract content from OpenAI-compatible response
-    let markers : [Text] = [
-      "\"content\":\"",
-      "\"content\": \"",
-    ];
-
-    for (marker in markers.vals()) {
-      let splits = jsonText.split(#text marker).toArray();
-      let n = splits.size();
-      if (n >= 2) {
-        // Skip the first split which is before system/user content
-        // The last assistant content is typically the one we want
-        var bestReply = "";
-        var i = 1;
-        while (i < n) {
-          let decoded = decodeJsonString(splits[i]);
-          if (decoded.size() > 0) { bestReply := decoded };
-          i += 1;
-        };
-        if (bestReply.size() > 0) { return bestReply };
-      };
+    var context = systemPrompt # " " # modeHint # "\n\n";
+    for ((role, content) in history.vals()) {
+      let roleLabel = if (role == "user") "User" else "Assistant";
+      context #= roleLabel # ": " # content # "\n";
     };
-
-    if (jsonText.contains(#text "\"error\"")) {
-      return extractErrorMessage(jsonText);
-    };
-
-    "AI service error. Please try again.";
+    context #= "User: " # userMessage # "\nAssistant:";
+    context;
   };
 
   func validateCredentials(username : Text, password : Text) : ?Account {
@@ -174,19 +121,26 @@ actor {
     userMessage : Text,
     mode : Mode,
   ) : async Text {
-    let body = buildRequestJson(history, userMessage, mode);
+    let prompt = buildContextPrompt(history, userMessage, mode);
+    let encodedPrompt = urlEncode(prompt);
+    let seed = Time.now() / 1_000_000_000;
+    let seedText = seed.toText();
+    let model = "openai";
+    let url = "https://text.pollinations.ai/" # encodedPrompt # "?model=" # model # "&seed=" # seedText;
 
     try {
-      let httpResponse = await OutCall.httpPostRequest(
-        POLLINATIONS_URL,
+      let httpResponse = await OutCall.httpGetRequest(
+        url,
         [
-          { name = "Content-Type"; value = "application/json" },
-          { name = "Accept"; value = "application/json" },
+          { name = "Accept"; value = "text/plain" },
         ],
-        body,
         transform,
       );
-      extractReply(httpResponse);
+      if (httpResponse == "") {
+        "AI service error. Please try again.";
+      } else {
+        httpResponse;
+      };
     } catch (_) {
       "AI service error. Please try again.";
     };
