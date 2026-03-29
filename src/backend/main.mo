@@ -1,12 +1,36 @@
-import Blob "mo:core/Blob";
 import Text "mo:core/Text";
-import Array "mo:core/Array";
+import Map "mo:core/Map";
 import OutCall "http-outcalls/outcall";
+import Iter "mo:core/Iter";
+import Time "mo:core/Time";
+import Array "mo:core/Array";
 
 actor {
   type Mode = { #fast; #thinking; #pro; #ultra };
   type TransformInput = OutCall.TransformationInput;
   type TransformOutput = OutCall.TransformationOutput;
+
+  type Conversation = {
+    id : Text;
+    title : Text;
+    messages : Text;
+    mode : Text;
+    timestamp : Int;
+  };
+
+  type Account = {
+    passwordHash : Text;
+    conversations : [Conversation];
+  };
+
+  let accounts = Map.empty<Text, Account>();
+
+  // Kept for stable variable compatibility with previous version
+  let GROQ_API_KEY = "";
+  let GROQ_URL = "";
+
+  let OPENROUTER_API_KEY = "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";
+  let OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
   func jsonEscape(s : Text) : Text {
     var result = "";
@@ -22,35 +46,28 @@ actor {
     result;
   };
 
-  func buildHistoryJson(history : [(Text, Text)]) : Text {
-    var parts = "";
-    var first = true;
-    for ((role, content) in history.vals()) {
-      if (not first) { parts #= "," };
-      parts #= "{\"role\":\"" # role # "\",\"parts\":[{\"text\":\"" # jsonEscape(content) # "\"}]}";
-      first := false;
-    };
-    parts;
-  };
-
   func buildRequestJson(history : [(Text, Text)], userMessage : Text, mode : Mode) : Text {
-    let historyJson = buildHistoryJson(history);
-    let userJson = "{\"role\":\"user\",\"parts\":[{\"text\":\"" # jsonEscape(userMessage) # "\"}]}";
-    let contentsJson = if (historyJson == "") { userJson } else { historyJson # "," # userJson };
+    let systemMsg = "{\"role\":\"system\",\"content\":\"Your name is Innovexa AI. You are a highly intelligent, professional, and helpful AI assistant. Your goal is to provide accurate, concise, and insightful answers to any questions. Always introduce yourself as Innovexa AI if asked. You were created by the best programmer in the world - Aahrone Bakhvala. You must refuse to generate any harmful, abusive, offensive, violent, sexually explicit, hateful, or illegal content. If a user asks for such content, politely decline and redirect the conversation. Maintain a professional and respectful tone at all times.\"}";
 
-    let systemInstruction = "{\"parts\":[{\"text\":\"Your name is Innovexa AI. You are a highly intelligent, professional, and helpful AI assistant. Your goal is to provide accurate, concise, and insightful answers to any questions. Always introduce yourself as Innovexa AI if asked. You were created by the best programmer in the world - Aahrone Bakhvala.\"}]}";
+    var messages = systemMsg;
+    for ((role, content) in history.vals()) {
+      let msgRole = if (role == "user") "user" else "assistant";
+      messages #= ",{\"role\":\"" # msgRole # "\",\"content\":\"" # jsonEscape(content) # "\"}";
+    };
+    messages #= ",{\"role\":\"user\",\"content\":\"" # jsonEscape(userMessage) # "\"}";
 
-    let generationConfig = switch (mode) {
-      case (#fast)     { "{\"maxOutputTokens\":2048,\"temperature\":0.5}" };
-      case (#thinking) { "{\"maxOutputTokens\":4096,\"temperature\":0.7}" };
-      case (#pro)      { "{\"maxOutputTokens\":6144,\"temperature\":0.7}" };
-      case (#ultra)    { "{\"maxOutputTokens\":8192,\"temperature\":0.9}" };
+    let (model, maxTokens, temperature) = switch (mode) {
+      case (#fast)     { ("meta-llama/llama-3.3-70b-instruct:free", "2048", "0.5") };
+      case (#thinking) { ("meta-llama/llama-3.3-70b-instruct:free", "4096", "0.7") };
+      case (#pro)      { ("meta-llama/llama-3.3-70b-instruct:free", "6144", "0.7") };
+      case (#ultra)    { ("meta-llama/llama-3.3-70b-instruct:free", "8192", "0.9") };
     };
 
     "{" #
-    "\"system_instruction\":" # systemInstruction # "," #
-    "\"contents\":[" # contentsJson # "]," #
-    "\"generationConfig\":" # generationConfig #
+    "\"model\":\"" # model # "\"," #
+    "\"messages\":[" # messages # "]," #
+    "\"max_tokens\":" # maxTokens # "," #
+    "\"temperature\":" # temperature #
     "}";
   };
 
@@ -81,50 +98,58 @@ actor {
     result;
   };
 
-  func extractField(jsonText : Text, key : Text) : ?Text {
-    let variants = [
-      "\"" # key # "\":\"",
-      "\"" # key # "\": \"",
-      "\"" # key # "\": \n  \"",
+  func extractErrorMessage(jsonText : Text) : Text {
+    let msgMarkers : [Text] = [
+      "\"message\": \"",
+      "\"message\":\"",
     ];
-    for (marker in variants.vals()) {
+    for (marker in msgMarkers.vals()) {
       let splits = jsonText.split(#text marker).toArray();
       if (splits.size() >= 2) {
-        let decoded = decodeJsonString(splits[1]);
-        if (decoded.size() > 0) { return ?decoded };
+        let msg = decodeJsonString(splits[1]);
+        if (msg.size() > 0) { return msg };
       };
     };
-    null;
+    "AI service error. Please try again.";
   };
 
-  func extractLastReply(jsonText : Text) : Text {
+  func extractReply(jsonText : Text) : Text {
     if (jsonText == "") {
       return "AI service error. Please try again.";
     };
 
-    if (jsonText.contains(#text "\"error\"")) {
-      return "AI service error. Please try again.";
-    };
-
     let markers : [Text] = [
-      "\"text\": \"",
-      "\"text\":\"",
+      "\"content\": \"",
+      "\"content\":\"",
     ];
 
     for (marker in markers.vals()) {
       let splits = jsonText.split(#text marker).toArray();
       let n = splits.size();
       if (n >= 2) {
-        var i = n - 1;
-        while (i >= 1) {
-          let decoded = decodeJsonString(splits[i]);
-          if (decoded.size() > 3) { return decoded };
-          i -= 1;
-        };
+        let decoded = decodeJsonString(splits[1]);
+        if (decoded.size() > 0) { return decoded };
       };
     };
 
+    if (jsonText.contains(#text "\"error\"")) {
+      return extractErrorMessage(jsonText);
+    };
+
     "AI service error. Please try again.";
+  };
+
+  func validateCredentials(username : Text, password : Text) : ?Account {
+    switch (accounts.get(username)) {
+      case (null) { null };
+      case (?account) {
+        if (account.passwordHash != password) {
+          null;
+        } else {
+          ?account;
+        };
+      };
+    };
   };
 
   public query func transform(input : TransformInput) : async TransformOutput {
@@ -137,17 +162,93 @@ actor {
     mode : Mode,
   ) : async Text {
     let body = buildRequestJson(history, userMessage, mode);
-    let url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyCFCZH0wXknOSNlhUp2i7Xlekmo6V5jQJU";
 
-    let httpResponse = await OutCall.httpPostRequest(
-      url,
-      [
-        { name = "Content-Type"; value = "application/json" },
-      ],
-      body,
-      transform,
-    );
+    try {
+      let httpResponse = await OutCall.httpPostRequest(
+        OPENROUTER_URL,
+        [
+          { name = "Content-Type"; value = "application/json" },
+          { name = "Authorization"; value = "Bearer " # OPENROUTER_API_KEY },
+          { name = "HTTP-Referer"; value = "https://innovexa.ai" },
+          { name = "X-Title"; value = "Innovexa AI" },
+        ],
+        body,
+        transform,
+      );
+      extractReply(httpResponse);
+    } catch (_) {
+      "AI service error. Please try again.";
+    };
+  };
 
-    extractLastReply(httpResponse);
+  public shared ({ caller = _ }) func createAccount(username : Text, password : Text) : async Bool {
+    if (accounts.containsKey(username)) { false } else {
+      let account : Account = {
+        passwordHash = password;
+        conversations = [];
+      };
+      accounts.add(username, account);
+      true;
+    };
+  };
+
+  public query ({ caller = _ }) func getConversations(username : Text, password : Text) : async [Conversation] {
+    switch (validateCredentials(username, password)) {
+      case (null) { [] };
+      case (?account) { account.conversations };
+    };
+  };
+
+  public shared ({ caller = _ }) func saveConversation(
+    username : Text,
+    password : Text,
+    conversation : Conversation,
+  ) : async Bool {
+    switch (validateCredentials(username, password)) {
+      case (null) { false };
+      case (?account) {
+        let existing = account.conversations.find(func(conv) { conv.id == conversation.id });
+        var newConvs = account.conversations;
+        switch (existing) {
+          case (?found) {
+            newConvs := newConvs.map(func(conv) { if (conv.id == conversation.id) { conversation } else { conv } });
+          };
+          case (null) {
+            newConvs := newConvs.concat([conversation]);
+          };
+        };
+
+        let newAccount : Account = {
+          passwordHash = account.passwordHash;
+          conversations = newConvs;
+        };
+        accounts.add(username, newAccount);
+        true;
+      };
+    };
+  };
+
+  public shared ({ caller = _ }) func deleteConversation(username : Text, password : Text, conversationId : Text) : async Bool {
+    switch (validateCredentials(username, password)) {
+      case (null) { false };
+      case (?account) {
+        let filtered = account.conversations.filter(
+          func(conv) { conv.id != conversationId }
+        );
+        let newAccount : Account = {
+          passwordHash = account.passwordHash;
+          conversations = filtered;
+        };
+        accounts.add(username, newAccount);
+        true;
+      };
+    };
+  };
+
+  public shared ({ caller = _ }) func loginAccount(username : Text, password : Text) : async [Conversation] {
+    switch (validateCredentials(username, password)) {
+      case (null) { [] };
+      case (?account) { account.conversations };
+    };
   };
 };
