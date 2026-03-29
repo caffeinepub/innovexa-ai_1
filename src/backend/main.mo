@@ -29,7 +29,7 @@ actor {
   let GROQ_API_KEY = "";
   let GROQ_URL = "";
 
-  let OPENROUTER_API_KEY = "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";
+  let OPENROUTER_API_KEY = "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";
   let OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
   func jsonEscape(s : Text) : Text {
